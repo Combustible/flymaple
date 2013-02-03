@@ -21,7 +21,8 @@ void initAcc() {
   	/* we dont do any bursting here, so we only need one i2c_msg object */
   	i2c_msg msgs[1]; 
   	uint8 msg_data[2];
-    msg_data = {0x00,0x00};
+    msg_data[0] = 0x00;
+    msg_data[1] = 0x00;
     msgs[0].addr = ACC;
     msgs[0].flags = 0; 
     msgs[0].length = 1; // just one byte for the address to read, 0x00

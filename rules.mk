@@ -44,7 +44,7 @@ CFLAGS_$(d) += $(FLAGS_ABS_INCLUDE)
 # CXXFLAGS_$(d) are extra flags passed to the C++ compiler. We'll need
 # our include directory, and we'll also add an extra definition as a
 # demo (look in getter.cpp for how it's used).
-CXXFLAGS_$(d) := -DMY_MAGIC_NUMBER=0x1eaf1ab5 $(FLAGS_ABS_INCLUDE)
+CXXFLAGS_$(d) := -DCLI=1 $(FLAGS_ABS_INCLUDE)
 
 # ASFLAGS_$(d) are extra flags passed to the assembler. We don't
 # have any assembly language files in this example, so we'll just
