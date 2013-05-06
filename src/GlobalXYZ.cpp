@@ -46,7 +46,7 @@ void GlobalXYZ::getZ(Vector<double> & newZ,Vector<double> & deltaTheta)
 void GlobalXYZ::getX(const Vector<double> & newZ,Vector<double> & newX,Vector<double> & deltaTheta)
 {
 	short hmc[3];
-	compassRead(hmc);
+	//compassRead(hmc);
 	Vector<double> northMagneticPole(3);
 	northMagneticPole(0) = hmc[0]; northMagneticPole(1) = hmc[1]; northMagneticPole(2) = hmc[2];
 	Vector<double> north(3);

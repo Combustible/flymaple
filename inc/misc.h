@@ -22,6 +22,7 @@ void writeTo(uint8 DEVICE, uint8 address, uint8 val);
 
 void readFrom(uint8 DEVICE, uint8 address, uint8 num, uint8 *msg_data);
 
+void printHex(uint8 value);
  
 int strlen(const char *s);
 

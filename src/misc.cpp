@@ -57,6 +57,18 @@ void readFrom(uint8 DEVICE, uint8 address, uint8 num, uint8 *msg_data) {
   i2c_master_xfer(I2C1, msgs, 1,0);
 }
 
+void printHex(uint8 value) {
+	const char hex_to_ascii[16] = {
+			'0', '1', '2', '3',
+			'4', '5', '6', '7',
+			'8', '9', 'A', 'B',
+			'C', 'D', 'E', 'F'
+	};
+
+	SerialUSB.write(hex_to_ascii[(value >> 4) & 0x0F]);
+	SerialUSB.write(hex_to_ascii[value & 0x0F]);
+}
+
 int putchar(char c)
 {
     SerialUSB.print(c);
