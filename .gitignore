@@ -1,3 +1,9 @@
+# Build files
+build
+
+# External libmaple codebase
+libmaple
+
 # Compiled Object files
 *.slo
 *.lo
