@@ -7,6 +7,7 @@
 #include "Gyroscope.h"
 #include "GlobalXYZ.h"
 
+#ifdef NOTYET
 #undef max
 
 using std::sqrt;
@@ -191,3 +192,4 @@ void vTaskUpdateXYZ(void * pvParameters)
 		vTaskDelay(UPDATE_INTERVAL);
 	}
 }
+#endif

@@ -1,7 +1,6 @@
 #include "wirish.h"
 #include "Compass.h"
 
-Compass Compass::compass;
 const unsigned char Compass::CompassAddress = 0x1e;
 const short Compass::sign[3] = {1,1,1};
 const double Compass::scale[3] = {1,1.09,1};
@@ -36,7 +35,7 @@ Compass::~Compass()
 Vector<double> Compass::getReading()
 {
 	short x,y,z;
-	compass.getRawReading(x,y,z);
+	this->getRawReading(x,y,z);
 	x = sign[0] * x * scale[0];
 	y = sign[1] * y * scale[1];
 	z = sign[2] * z * scale[2];
@@ -45,6 +44,7 @@ Vector<double> Compass::getReading()
 	return retVal;
 }
 
+#ifdef NOTYET
 void Compass::calibrate(unsigned char gain)
 {
 #ifndef NDEBUG
@@ -80,3 +80,4 @@ void Compass::calibrate(unsigned char gain)
 	compass.write(CompassAddress,0x02,0);
 	delay(100);
 }
+#endif

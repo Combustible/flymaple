@@ -17,6 +17,8 @@
 #include "MapleFreeRTOS.h"
 #include "Test.h"
 #include "GlobalXYZ.h"
+#include "Pressure.h"
+#include "Compass.h"
 
 #define PWM_PIN 2
 #define STACK_SIZE 200
@@ -35,13 +37,65 @@ void setup()
 }
 
 /* Please Do Not Remove & Edit Following Code */
-int main(void) {
-    setup();
-    
+void loop(void) {
+	Vector<double> pressure;
+	Vector<double> compass_read;
+	Compass *compass = new Compass(5);
+
+    while (SerialUSB.available()) {
+        uint8 input = SerialUSB.read();
+        SerialUSB.println((char)input);
+
+        switch(input) {
+        case ' ':
+            SerialUSB.println("spacebar, nice!");
+            pressure = Pressure::getReading();
+			SerialUSB.print("Pressure: ");
+			SerialUSB.println((double)pressure(0), 5);
+			SerialUSB.print("Temperature: ");
+			SerialUSB.println((double)pressure(1), 5);
+			SerialUSB.print("Altitude: ");
+			SerialUSB.println((double)pressure(2), 5);
+
+            compass_read = compass->getReading();
+			SerialUSB.print("X: ");
+			SerialUSB.println((double)compass_read(0), 5);
+			SerialUSB.print("Y: ");
+			SerialUSB.println((double)compass_read(1), 5);
+			SerialUSB.print("Z: ");
+			SerialUSB.println((double)compass_read(2), 5);
+            break;
+
+        default: // -------------------------------
+            SerialUSB.print("Unexpected byte: 0x");
+            SerialUSB.print((int)input, HEX);
+        }
+
+        SerialUSB.print("> ");
+    }
+
+#ifdef NOTYET
 	xTaskCreate(vTaskUpdateXYZ,(const signed char *)"GlobalXYZ",STACK_SIZE,NULL,1,NULL);
 	xTaskCreate(vTaskTestOrientationFiltering2,(const signed char *)"testOrientationFiltering2",STACK_SIZE,NULL,1,NULL);
-	
-	vTaskStartScheduler();
 
+	vTaskStartScheduler();
+#endif
+}
+
+// -- premain() and main() ----------------------------------------------------
+
+// Force init to be called *first*, i.e. before static object allocation.
+// Otherwise, statically allocated objects that need libmaple may fail.
+__attribute__((constructor)) void premain() {
+    init();
+}
+
+int main(void) {
+    setup();
+
+    while (1) {
+        loop();
+    }
     return 0;
 }
+

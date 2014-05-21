@@ -14,20 +14,18 @@
 #include "Sensor.h"
 
 class Compass : public Sensor {
-	static Compass compass;
-	
 	static const unsigned char CompassAddress;
 	static const short sign[3];
 	static const double scale[3];
 	
+	void getRawReading(short& x,short& y,short& z);
+public:
 	/**
 	 * Constructor initializing the compass.
 	 * To do the initialization for only once, the constructor is hiden from developer.
 	 * The only one Compass object is a static one created automatically.
 	 */
 	Compass(unsigned char gain = 5);
-	void getRawReading(short& x,short& y,short& z);
-public:
 	/**
 	 * Destructor.
 	 */
@@ -39,7 +37,7 @@ public:
 	 * points to a point below the northern horizon in the northern hemisphere. 
 	 * It is not a horizontal vector.
 	 */
-	static Vector<double> getReading();
+	Vector<double> getReading();
 	/**
 	 * Prints the calibration information for off-line calibration. The calibration 
 	 * is needed only once for a specific compass. The user need to place this function
@@ -48,7 +46,7 @@ public:
 	 * the serial stablizes. Then the record the readings to Compass::scale[3] in 
 	 * Compass.cpp. Last, recompile the program. Calibration accomplished.
 	 */
-	static void calibrate(unsigned char gain = 5);
+	void calibrate(unsigned char gain = 5);
 };
 
 #endif

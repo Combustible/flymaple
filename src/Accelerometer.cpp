@@ -1,6 +1,7 @@
 #include "wirish.h"
 #include "Accelerometer.h"
 
+#ifdef NOTYET
 Accelerometer Accelerometer::accelerometer;
 const unsigned char Accelerometer::AccelAddress = 0x53;
 const unsigned char Accelerometer::XL345_DEVID = 0xe5;
@@ -73,3 +74,4 @@ Vector<double> Accelerometer::getReading()
 	//NOTICE:返回的向量的单位是 g（重力加速度）
 	return retVal;
 }
+#endif

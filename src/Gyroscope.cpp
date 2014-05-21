@@ -1,6 +1,7 @@
 #include "wirish.h"
 #include "Gyroscope.h"
 
+#ifdef NOTYET
 Gyroscope Gyroscope::gyroscope;
 const unsigned char Gyroscope::GyroAddress = 0x68;
 const unsigned char Gyroscope::PWR_MGM = 0x3e;
@@ -58,3 +59,4 @@ Vector<double> Gyroscope::getReading()
 	//NOTICE:返回的向量的单位是 弧度/s
 	return retVal;
 }
+#endif

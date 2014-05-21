@@ -7,6 +7,7 @@
 #include "Pressure.h"
 #include "Motor.h"
 
+#ifdef NOTYET
 void Test::testOrientationFiltering1()
 {
 	while(1) {
@@ -200,3 +201,4 @@ void vTasktestMotor(void * pvParameters)
 {
 	Test::testMotor();
 }
+#endif
