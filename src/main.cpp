@@ -2,14 +2,14 @@
  * @file   main.cpp
  * @author breadbread1984 <breadbread1984@163.com>
  * @date   Sat Jul 21 15:12:00 2012
- * 
- * @section DESCRIPTION 
- * 
+ *
+ * @section DESCRIPTION
+ *
  * openDrone Quadcopter Main function File
- * 
+ *
  * @section LICENSE
- * 
- * GPLv3 
+ *
+ * GPLv3
  */
 
 
@@ -23,60 +23,67 @@
 #define PWM_PIN 2
 #define STACK_SIZE 200
 
+
 void setup()
 {
-    /* Set up the LED to blink  */
-    pinMode(BOARD_LED_PIN, OUTPUT);
+	/* Set up the LED to blink  */
+	pinMode(BOARD_LED_PIN, OUTPUT);
 
-    /* Turn on PWM on pin PWM_PIN */
-    pinMode(PWM_PIN, PWM);
-    pwmWrite(PWM_PIN, 0x8000);
+	/* Turn on PWM on pin PWM_PIN */
+	pinMode(PWM_PIN, PWM);
+	pwmWrite(PWM_PIN, 0x8000);
 
-    /* Send a message out USART2  */
-    Serial2.begin(9600);
+	/* Send a message out USART2  */
+	Serial2.begin(9600);
 }
 
 /* Please Do Not Remove & Edit Following Code */
-void loop(void) {
+void loop(void)
+{
 	Vector<double> pressure;
-	Vector<double> compass_read;
-	Compass *compass = new Compass(5);
 
-    while (SerialUSB.available()) {
-        uint8 input = SerialUSB.read();
-        SerialUSB.println((char)input);
+	Compass compass;
 
-        switch(input) {
-        case ' ':
-            SerialUSB.println("spacebar, nice!");
-            pressure = Pressure::getReading();
-			SerialUSB.print("Pressure: ");
-			SerialUSB.println((double)pressure(0), 5);
-			SerialUSB.print("Temperature: ");
-			SerialUSB.println((double)pressure(1), 5);
-			SerialUSB.print("Altitude: ");
-			SerialUSB.println((double)pressure(2), 5);
 
-            compass_read = compass->getReading();
+	while (SerialUSB.available()) {
+		uint8 input = SerialUSB.read();
+		SerialUSB.println((char)input);
+
+		switch (input) {
+		case ' ':
+			SerialUSB.println("spacebar, nice!");
+//            pressure = Pressure::getReading();
+//			SerialUSB.print("Pressure: ");
+//			SerialUSB.println((double)pressure(0), 5);
+//			SerialUSB.print("Temperature: ");
+//			SerialUSB.println((double)pressure(1), 5);
+//			SerialUSB.print("Altitude: ");
+//			SerialUSB.println((double)pressure(2), 5);
+
+			compass.getReading();
 			SerialUSB.print("X: ");
-			SerialUSB.println((double)compass_read(0), 5);
+			SerialUSB.println(compass.x, 5);
 			SerialUSB.print("Y: ");
-			SerialUSB.println((double)compass_read(1), 5);
+			SerialUSB.println(compass.y, 5);
 			SerialUSB.print("Z: ");
-			SerialUSB.println((double)compass_read(2), 5);
-            break;
+			SerialUSB.println(compass.z, 5);
+			break;
 
-        default: // -------------------------------
-            SerialUSB.print("Unexpected byte: 0x");
-            SerialUSB.print((int)input, HEX);
-        }
+		case 'c':
+			while (1) {
+				compass.calibrate();
+			}
+		default: // -------------------------------
+			SerialUSB.print("Unexpected byte: 0x");
+			SerialUSB.print((int)input, HEX);
+		}
 
-        SerialUSB.print("> ");
-    }
+		SerialUSB.print("> ");
+	}
 
 #ifdef NOTYET
-	xTaskCreate(vTaskUpdateXYZ,(const signed char *)"GlobalXYZ",STACK_SIZE,NULL,1,NULL);
-	xTaskCreate(vTaskTestOrientationFiltering2,(const signed char *)"testOrientationFiltering2",STACK_SIZE,NULL,1,NULL);
+	xTaskCreate(vTaskUpdateXYZ, (const signed char *)"GlobalXYZ", STACK_SIZE, NULL, 1, NULL);
+	xTaskCreate(vTaskTestOrientationFiltering2, (const signed char *)"testOrientationFiltering2", STACK_SIZE, NULL, 1, NULL);
 
 	vTaskStartScheduler();
 #endif
@@ -86,16 +93,18 @@ void loop(void) {
 
 // Force init to be called *first*, i.e. before static object allocation.
 // Otherwise, statically allocated objects that need libmaple may fail.
-__attribute__((constructor)) void premain() {
-    init();
+__attribute__((constructor)) void premain()
+{
+	init();
 }
 
-int main(void) {
-    setup();
+int main(void)
+{
+	setup();
 
-    while (1) {
-        loop();
-    }
-    return 0;
+	while (1) {
+		loop();
+	}
+	return 0;
 }
 
