@@ -14,11 +14,12 @@
 
 
 #include "wirish.h"
-#include "MapleFreeRTOS.h"
-#include "Test.h"
-#include "GlobalXYZ.h"
-#include "Pressure.h"
+//#include "MapleFreeRTOS.h"
+//#include "Test.h"
+//#include "GlobalXYZ.h"
+//#include "Pressure.h"
 #include "Compass.h"
+#include "Sensor.h"
 
 #define PWM_PIN 2
 #define STACK_SIZE 200
@@ -40,10 +41,7 @@ void setup()
 /* Please Do Not Remove & Edit Following Code */
 void loop(void)
 {
-	Vector<double> pressure;
-
-	Compass compass;
-
+//	Vector<double> pressure;
 
 	while (SerialUSB.available()) {
 		uint8 input = SerialUSB.read();
@@ -60,19 +58,21 @@ void loop(void)
 //			SerialUSB.print("Altitude: ");
 //			SerialUSB.println((double)pressure(2), 5);
 
-			compass.getReading();
+			Compass::getReading();
 			SerialUSB.print("X: ");
-			SerialUSB.println(compass.x, 5);
+			SerialUSB.println(Compass::x, 5);
 			SerialUSB.print("Y: ");
-			SerialUSB.println(compass.y, 5);
+			SerialUSB.println(Compass::y, 5);
 			SerialUSB.print("Z: ");
-			SerialUSB.println(compass.z, 5);
-			break;
+			SerialUSB.println(Compass::z, 5);
 
+			break;
 		case 'c':
 			while (1) {
-				compass.calibrate();
+				Compass::calibrate();
 			}
+
+			break;
 		default: // -------------------------------
 			SerialUSB.print("Unexpected byte: 0x");
 			SerialUSB.print((int)input, HEX);

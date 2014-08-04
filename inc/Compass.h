@@ -1,18 +1,24 @@
-#ifndef COMPASS_H
-#define COMPASS_H
-
 /**
  * @file   Compass.h
  * @author breadbread1984 <breadbread1984@163.com>
  * @date   Sat Jul 21 15:12:00 2012
  *
- * @brief       The static class for manipulating the compass.
+ * Last updated by: Byron Marohn <combustible@live.com>
+ *                  August 3, 2014
+ *
+ * @brief  The namespace for manipulating the compass.
+ *
+ * Caller should call Compass::init() before otherwise accessing compass routines.
  *
  * @copyright GPLv3
  */
 
 #include "Error.h"
 #include "Sensor.h"
+
+#ifndef COMPASS_H
+#define COMPASS_H
+
 
 #define COMPASS_I2C_ADDR                    (0x1E)
 #define COMPASS_I2C_REG_CONFIG_A            (0x00)
@@ -51,33 +57,25 @@
 #define COMPASS_DATA_OUT_MAX_VAL            (2047)
 #define COMPASS_DATA_OUT_ERR_VAL            (-4096)
 
-class Compass : public Sensor
+namespace Compass
 {
-	static const float sign[3];
-	static const float scale[3];
-	static unsigned char gain;
 
-	void getRawReading(short *x, short *y, short *z);
-
-	static bool init_done;
-
-public:
 	/**
 	 * The vector the north magnetic pole. Please notice that the direction
 	 * points to a point below the northern horizon in the northern hemisphere.
 	 * It is not a horizontal vector.
 	 */
-	static float x, y, z;
+	extern float x;
+	extern float y;
+	extern float z;
 
 	/**
-	 * Constructor initializing the compass and gets the first reading.
+	 * Initialize Compass subsystem if not done already
 	 */
-	Compass();
-	~Compass();
+	void init();
 
 	/**
-	 * Get the direction of the north magnetic pole.
-	 *
+	 * Get the direction of the north magnetic pole into x,y,z
 	 */
 	status getReading();
 
@@ -90,6 +88,8 @@ public:
 	 * Compass.cpp. Last, recompile the program. Calibration accomplished.
 	 */
 	void calibrate();
+
 };
+
 
 #endif
