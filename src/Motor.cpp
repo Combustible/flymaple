@@ -1,3 +1,4 @@
+#ifdef NOTYET
 #include <assert.h>
 #include "wirish.h"
 #include "Motor.h"
@@ -81,3 +82,4 @@ unsigned short Motor::levelToCtrl(unsigned short level)
 	unsigned short ctrl = (level <= 0)?0:((level >= 1000)?50000:((1000 + level) * 24));
 	return ctrl;
 }
+#endif

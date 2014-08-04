@@ -1,7 +1,24 @@
+#ifdef NOTYET
 #include "wirish.h"
 #include "Accelerometer.h"
 
-#ifdef NOTYET
+#ifdef FROM_HEADER_FILE
+	static const unsigned char AccelAddress;
+	static const unsigned char XL345_DEVID;
+	static const unsigned char ADXLREG_BW_RATE;
+	static const unsigned char ADXLREG_POWER_CTL;
+	static const unsigned char ADXLREG_DATA_FORMAT;
+	static const unsigned char ADXLREG_DEVID;
+	static const unsigned char ADXLREG_DATAX0;
+	static const unsigned short GRAVITY;
+	static const short sign[3];
+	static short offset[3];
+	//ADXL345 specification
+	static const float sensitivity;
+
+	void getRawReading(short& x,short& y,short& z);
+#endif
+
 Accelerometer Accelerometer::accelerometer;
 const unsigned char Accelerometer::AccelAddress = 0x53;
 const unsigned char Accelerometer::XL345_DEVID = 0xe5;

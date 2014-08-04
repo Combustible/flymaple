@@ -1,61 +1,51 @@
-#ifndef PRESSURE_H
-#define PRESSURE_H
-
 /**
- * @file	Pressure.h
- * @author	breadbread1984 <breadbread1984@163.com>
- * @date	Fri Sep 7 10:01:00 2012
- * 
- * @brief	The static class for manipulating the pressure sensor.
- * 
+ * @file        Pressure.h
+ * @author      breadbread1984 <breadbread1984@163.com>
+ * @date        Fri Sep 7 10:01:00 2012
+ *
+ * Last updated by: Byron Marohn <combustible@live.com>
+ *                  August 3, 2014
+ *
+ * @brief  The namespace for manipulating the pressure sensor.
+ *
+ * Caller should call Pressure::init() before otherwise accessing pressure routines.
+ *
  * @copyright GPLv3
  */
 
+#include "Error.h"
 #include "Sensor.h"
+#include "Vector.h"
 
-class Pressure : public Sensor {
-	using Sensor::read;
-	static Pressure pressure;
-	
-	static const unsigned char PressureAddress;
-	static const unsigned char OSS;
-	static const unsigned char BMP085_CAL_AC[6];
-	static const unsigned char BMP085_CAL_B[2];
-	static const unsigned char BMP085_CAL_MB;
-	static const unsigned char BMP085_CAL_MC;
-	static const unsigned char BMP085_CAL_MD;
-	static const unsigned char BMP085_CONTROL;
-	static const unsigned char BMP085_CONTROL_OUTPUT;
-	static const unsigned char READ_TEMPERATURE;
-	static const unsigned char READ_PRESSURE;
-	static const int MSLP;
-	static const int Altitude_cm_Offset;
-	
-	static short ac[6],b[2],mb,mc,md;
-	static int b5;
-  
+#ifndef PRESSURE_H
+#define PRESSURE_H
+
+
+#define BMP085_I2C_ADDR (0x77)
+#define BMP085_I2C_REG_EEPROM (0xAA)
+#define BMP085_I2C_REG_EEPROM_LEN (22)
+
+#define BIG_ENDIAN_INT16_FROM_PTR(ptr) \
+	(((int16_t)(*((uint8_t *)ptr)) << 8) | ((int16_t)(*(((uint8_t *)ptr) + 1))))
+#define BIG_ENDIAN_UINT16_FROM_PTR(ptr) \
+	(((uint16_t)(*((uint8_t *)ptr)) << 8) | ((uint16_t)(*(((uint8_t *)ptr) + 1))))
+
+namespace Pressure
+{
+
 	/**
-	 * Constructor initializing the pressure sensor.
-	 * To do the initialization for only once. The constructor is hiden from developer.
-	 * The only one Pressure object is a static one created automatically.
+	 * Initialize Pressure subsystem if not done already
 	 */
-	Pressure();
-	short read(unsigned char addr);
-	void getRawReading(unsigned int& up,unsigned short& ut);
-	int rawToPressure(unsigned int up);
-	short rawToTemperature(unsigned short ut);
-	double pressureToAltitude(int p);
-public:
-	/**
-	 * Destructor
-	 */
-	~Pressure();
+	void init();
+
 	/**
 	 * Get the pressure, temperature, altitude (in centimeter) of the quadcopter.
-	 * 
+	 *
 	 * @return the elements in the returned vector are pressure (of int type in Pa), temperature (of short type in 0.1 degree C) and altitude (of double type in meters) in sequence.
 	 */
-	static Vector<double> getReading();
+	Vector<double> getReading();
+
 };
+
 
 #endif

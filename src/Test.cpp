@@ -1,3 +1,4 @@
+#ifdef NOTYET
 #include "wirish.h"
 #include "Test.h"
 #include "GlobalXYZ.h"
@@ -7,7 +8,6 @@
 #include "Pressure.h"
 #include "Motor.h"
 
-#ifdef NOTYET
 void Test::testOrientationFiltering1()
 {
 	while(1) {

@@ -1,4 +1,4 @@
-#ifndef GLOBALXYZ_H
+#ifdef GLOBALXYZ_H
 #define GLOBALXYZ_H
 
 /**
