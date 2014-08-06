@@ -12,6 +12,7 @@ void Sensor::init()
 {
 	if (gIsInit != true) {
 		i2c_master_enable(I2C1, 0);
+		gIsInit = true;
 	}
 }
 

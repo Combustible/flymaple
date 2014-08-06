@@ -1,23 +1,27 @@
 #include "wirish.h"
 #include "Compass.h"
+#include "MapleFreeRTOS.h"
 
 using namespace Sensor;
 
 /********************** Locally Accessible **********************/
 
 static bool gIsInit = false;
+
+// Device-specific calibration information
 static const float gSign[3] = {1, 1, 1};
 static const float gScale[3] = {1.18, 1, 1.10};
+
 // Max sensitivity to start, will automatically decrease if it causes problems
 static unsigned char gGain = 7;
 
-static void getRawReading(int16_t *x, int16_t *y, int16_t *z)
+static inline void getRawReading(int16_t *new_x, int16_t *new_y, int16_t *new_z)
 {
 	uint8_t buffer[6];
 	read(COMPASS_I2C_ADDR, COMPASS_I2C_REG_DATA_OUT, 6, buffer);
-	*x = (((short)buffer[0]) << 8) | buffer[1];    // X axis
-	*y = (((short)buffer[4]) << 8) | buffer[5];    // Y axis
-	*z = (((short)buffer[2]) << 8) | buffer[3];    // Z axis
+	*new_x = (((short)buffer[0]) << 8) | buffer[1];    // X axis
+	*new_y = (((short)buffer[4]) << 8) | buffer[5];    // Y axis
+	*new_z = (((short)buffer[2]) << 8) | buffer[3];    // Z axis
 }
 
 /********************** Globally Accessible **********************/
@@ -40,7 +44,13 @@ void Compass::init()
 		write(COMPASS_I2C_ADDR, COMPASS_I2C_REG_MODE,
 		      COMPASS_MODE_I2C_REGULAR_SPEED | COMPASS_MODE_CONTINUOUS);
 
+		// Wait 100 milliseconds
+#ifdef WHYNOWORK
+		vTaskDelay(100 / portTICK_RATE_MS);
+		taskYIELD();
+#else
 		delay(100);
+#endif
 
 		getReading();
 
@@ -124,9 +134,17 @@ status Compass::getReading()
 
 	magnitude = sqrt((double)(floatx * floatx + floaty * floaty + floatz * floatz));
 
+	/*
+	 * Update the global values
+	 *
+	 * Need to do this in a critical section, just in case control transfers in the middle
+	 * leaving one or two components updated and the others stale.
+	 */
+	taskENTER_CRITICAL();
 	x = floatx / magnitude;
 	y = floaty / magnitude;
 	z = floatz / magnitude;
+	taskEXIT_CRITICAL();
 
 	last_read_fail = false;
 	read_fail_count = 0;

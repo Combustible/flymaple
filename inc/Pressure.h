@@ -21,17 +21,27 @@
 #define PRESSURE_H
 
 
-#define BMP085_I2C_ADDR (0x77)
-#define BMP085_I2C_REG_EEPROM (0xAA)
-#define BMP085_I2C_REG_EEPROM_LEN (22)
+#define BMP085_I2C_ADDR                 (0x77)
+#define BMP085_I2C_REG_EEPROM           (0xAA)
+#define BMP085_I2C_REG_EEPROM_LEN       (22)
+#define BMP085_I2C_REG_CONTROL          (0xf4)
+#define BMP085_I2C_REG_CONTROL_OUTPUT   (0xf6)
+#define BMP085_CMD_READ_TEMPERATURE     (0x2e)
+#define BMP085_CMD_READ_PRESSURE        (0x34)
+#define PRESSURE_AT_SEALEVEL_IN_PA      (101325)
 
 #define BIG_ENDIAN_INT16_FROM_PTR(ptr) \
-	(((int16_t)(*((uint8_t *)ptr)) << 8) | ((int16_t)(*(((uint8_t *)ptr) + 1))))
+	(((int16_t)(*((int8_t *)ptr)) << 8) | ((int16_t)(*(((int8_t *)ptr) + 1))))
 #define BIG_ENDIAN_UINT16_FROM_PTR(ptr) \
 	(((uint16_t)(*((uint8_t *)ptr)) << 8) | ((uint16_t)(*(((uint8_t *)ptr) + 1))))
 
 namespace Pressure
 {
+
+	/** Temperature in .1 degree C */
+	extern uint32_t temperature;
+	/** Pressure in Pa */
+	extern uint32_t pressure;
 
 	/**
 	 * Initialize Pressure subsystem if not done already
@@ -39,12 +49,19 @@ namespace Pressure
 	void init();
 
 	/**
-	 * Get the pressure, temperature, altitude (in centimeter) of the quadcopter.
-	 *
-	 * @return the elements in the returned vector are pressure (of int type in Pa), temperature (of short type in 0.1 degree C) and altitude (of double type in meters) in sequence.
+	 * Read the temperature and pressure from the pressure sensor and update the global
+	 * values 'temperature' and 'pressure', respectively.
 	 */
-	Vector<double> getReading();
+	status getReading();
 
+	/**
+	 * Floating point operating to compute the absolute altitude from the previously obtained
+	 * pressure measurement.
+	 */
+	float computeAltitude();
+
+	int32_t debug_get_ut();
+	int32_t debug_get_up();
 };
 
 
