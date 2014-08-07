@@ -39,9 +39,9 @@ namespace Pressure
 {
 
 	/** Temperature in .1 degree C */
-	extern uint32_t temperature;
+	extern int32_t temperature;
 	/** Pressure in Pa */
-	extern uint32_t pressure;
+	extern int32_t pressure;
 
 	/**
 	 * Initialize Pressure subsystem if not done already

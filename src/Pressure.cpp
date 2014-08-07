@@ -39,12 +39,16 @@ static inline void getRawReading(int32_t *new_ut, int32_t *new_up) {
 
 	*new_ut = (((int32_t)buffer[0]) << 8) | ((int32_t)buffer[1]);
 
+	// 1 millisecond delay between temperature and pressure
+	vTaskDelay(1 / portTICK_RATE_MS);
+
 	/*********************** Raw Pressure ***********************/
 
 	write(BMP085_I2C_ADDR, BMP085_I2C_REG_CONTROL, (BMP085_CMD_READ_PRESSURE | (OSS << 6)));
 
 	// Wait up to 26 milliseconds, depending on OSS
-	vTaskDelay(OSS_SAMPLE_DELAY_IN_MS[OSS] / portTICK_RATE_MS);
+//	vTaskDelay(OSS_SAMPLE_DELAY_IN_MS[OSS] / portTICK_RATE_MS);
+	vTaskDelay(2 / portTICK_RATE_MS);
 
 	read(BMP085_I2C_ADDR, BMP085_I2C_REG_CONTROL_OUTPUT, 3, buffer);
 
@@ -83,11 +87,7 @@ void Pressure::init()
 		md = BIG_ENDIAN_INT16_FROM_PTR(&buffer[20]);
 
 		// Wait 100 milliseconds
-#ifdef WHYNOWORK
 		vTaskDelay(100 / portTICK_RATE_MS);
-#else
-		delay(100);
-#endif
 
 		getReading();
 	}

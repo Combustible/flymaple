@@ -22,7 +22,7 @@
 #include "Sensor.h"
 
 #define PWM_PIN 2
-#define STACK_SIZE 500
+#define STACK_SIZE 300
 
 
 void setup()
@@ -36,16 +36,16 @@ void setup()
 
 	/* Send a message out USART2  */
 	Serial2.begin(9600);
-
-	/* Initialize sensors */
-	Compass::init();
-	Pressure::init();
 }
 
 // TODO: Needs error handling somehow
 void sensor_loop(void * pvParameters) {
 	portTickType xLastWakeTime;
 	const portTickType xFrequency = 100;
+
+	/* Initialize sensors */
+	Compass::init();
+	Pressure::init();
 
 	xLastWakeTime = xTaskGetTickCount ();
 

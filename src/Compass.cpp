@@ -45,12 +45,7 @@ void Compass::init()
 		      COMPASS_MODE_I2C_REGULAR_SPEED | COMPASS_MODE_CONTINUOUS);
 
 		// Wait 100 milliseconds
-#ifdef WHYNOWORK
 		vTaskDelay(100 / portTICK_RATE_MS);
-		taskYIELD();
-#else
-		delay(100);
-#endif
 
 		getReading();
 
