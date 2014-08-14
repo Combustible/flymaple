@@ -1,6 +1,7 @@
 #include "wirish.h"
 #include "Compass.h"
 #include "MapleFreeRTOS.h"
+#include "flymaple_utils.h"
 
 using namespace Sensor;
 
@@ -13,15 +14,15 @@ static const float gSign[3] = {1, 1, 1};
 static const float gScale[3] = {1.18, 1, 1.10};
 
 // Max sensitivity to start, will automatically decrease if it causes problems
-static unsigned char gGain = 7;
+static uint8_t gGain = 7;
 
 static inline void getRawReading(int16_t *new_x, int16_t *new_y, int16_t *new_z)
 {
 	uint8_t buffer[6];
 	read(COMPASS_I2C_ADDR, COMPASS_I2C_REG_DATA_OUT, 6, buffer);
-	*new_x = (((short)buffer[0]) << 8) | buffer[1];    // X axis
-	*new_y = (((short)buffer[4]) << 8) | buffer[5];    // Y axis
-	*new_z = (((short)buffer[2]) << 8) | buffer[3];    // Z axis
+	*new_x = BIG_ENDIAN_INT16_FROM_PTR(&buffer[0]);
+	*new_y = BIG_ENDIAN_INT16_FROM_PTR(&buffer[4]);
+	*new_z = BIG_ENDIAN_INT16_FROM_PTR(&buffer[2]);
 }
 
 /********************** Globally Accessible **********************/
@@ -30,8 +31,10 @@ float Compass::x = 1;
 float Compass::y = 0;
 float Compass::z = 0;
 
-void Compass::init()
+status Compass::init()
 {
+	status ret;
+
 	if (gIsInit != true) {
 		Sensor::init();
 
@@ -47,10 +50,17 @@ void Compass::init()
 		// Wait 100 milliseconds
 		vTaskDelay(100 / portTICK_RATE_MS);
 
-		getReading();
+		// Get the first reading
+		ret = getReading();
+		if (ret) {
+			FLY_PRINT_ERR("ERROR: Compass failure! First read returned error");
+			return ret;
+		}
 
 		gIsInit = true;
 	}
+
+	return FLYMAPLE_SUCCESS;
 }
 
 status Compass::getReading()
@@ -80,19 +90,15 @@ status Compass::getReading()
 		}
 
 		if (gGain == 0) {
-#ifndef NDEBUG
-			SerialUSB.println("ERROR: Compass Failure! Attempting to decrement gain below 0.");
-#endif
+			FLY_PRINT_ERR("ERROR: Compass Failure! Attempting to decrement gain below 0.");
 			return FLYMAPLE_ERR_COMPASS_FAIL;
 		}
 
 		gGain--;
 
-#ifndef NDEBUG
-		SerialUSB.print("WARNING: Compass overflow! Gain decreased to ");
-		SerialUSB.print(gGain);
-		SerialUSB.println();
-#endif
+		FLY_PRINT("WARNING: Compass overflow! Gain decreased to ");
+		FLY_PRINT(gGain);
+		FLY_PRINTLN();
 
 		write(COMPASS_I2C_ADDR, COMPASS_I2C_REG_CONFIG_B,
 		      COMPASS_CONFIG_B_GAIN_VALUE(gGain));
@@ -109,14 +115,10 @@ status Compass::getReading()
 	    z < COMPASS_DATA_OUT_MIN_VAL || z > COMPASS_DATA_OUT_MAX_VAL) {
 		read_fail_count++;
 
-#ifndef NDEBUG
-		SerialUSB.println("WARNING: Compass read failure - value out of range");
-#endif
+		FLY_PRINT_ERR("WARNING: Compass read failure - value out of range");
 
 		if (read_fail_count >= 5) {
-#ifndef NDEBUG
-			SerialUSB.println("ERROR: Compass failure! Last 5 values out of range");
-#endif
+			FLY_PRINT_ERR("ERROR: Compass failure! Last 5 values out of range");
 			return FLYMAPLE_ERR_COMPASS_FAIL;
 		}
 
@@ -172,15 +174,13 @@ void Compass::calibrate()
 	if (maxy > maxval) maxval = maxy;
 	if (maxz > maxval) maxval = maxz;
 
-#ifndef NDEBUG
-	SerialUSB.print("scalex = ");
-	SerialUSB.print(maxval / maxx);
-	SerialUSB.print(" scaley = ");
-	SerialUSB.print(maxval / maxy);
-	SerialUSB.print(" scalez = ");
-	SerialUSB.print(maxval / maxz);
-	SerialUSB.println();
-#endif
+	FLY_PRINT("scalex = ");
+	FLY_PRINT(maxval / maxx);
+	FLY_PRINT(" scaley = ");
+	FLY_PRINT(maxval / maxy);
+	FLY_PRINT(" scalez = ");
+	FLY_PRINT(maxval / maxz);
+	FLY_PRINTLN();
 
 	delay(100);
 }

@@ -30,10 +30,6 @@
 #define BMP085_CMD_READ_PRESSURE        (0x34)
 #define PRESSURE_AT_SEALEVEL_IN_PA      (101325)
 
-#define BIG_ENDIAN_INT16_FROM_PTR(ptr) \
-	(((int16_t)(*((int8_t *)ptr)) << 8) | ((int16_t)(*(((int8_t *)ptr) + 1))))
-#define BIG_ENDIAN_UINT16_FROM_PTR(ptr) \
-	(((uint16_t)(*((uint8_t *)ptr)) << 8) | ((uint16_t)(*(((uint8_t *)ptr) + 1))))
 
 namespace Pressure
 {
@@ -46,7 +42,7 @@ namespace Pressure
 	/**
 	 * Initialize Pressure subsystem if not done already
 	 */
-	void init();
+	status init();
 
 	/**
 	 * Read the temperature and pressure from the pressure sensor and update the global
@@ -60,8 +56,6 @@ namespace Pressure
 	 */
 	float computeAltitude();
 
-	int32_t debug_get_ut();
-	int32_t debug_get_up();
 };
 
 

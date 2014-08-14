@@ -19,7 +19,9 @@
 //#include "GlobalXYZ.h"
 #include "Pressure.h"
 #include "Compass.h"
+#include "Accelerometer.h"
 #include "Sensor.h"
+#include "flymaple_utils.h"
 
 #define PWM_PIN 2
 #define STACK_SIZE 300
@@ -46,6 +48,9 @@ void sensor_loop(void * pvParameters) {
 	/* Initialize sensors */
 	Compass::init();
 	Pressure::init();
+	Accelerometer::init();
+
+	FLY_PRINTLN("Sensor initialization complete");
 
 	xLastWakeTime = xTaskGetTickCount ();
 
@@ -55,10 +60,11 @@ void sensor_loop(void * pvParameters) {
 
 		Compass::getReading();
 		Pressure::getReading();
+		Accelerometer::getReading();
 	}
 }
 
-void print_loop() {
+void print_loop(void * pvParameters) {
 	portTickType xLastWakeTime;
 	const portTickType xFrequency = 500;
 
@@ -68,23 +74,26 @@ void print_loop() {
 		// Wait for the next cycle.
 		vTaskDelayUntil( &xLastWakeTime, xFrequency );
 
-		SerialUSB.print("X: ");
-		SerialUSB.println(Compass::x, 5);
-		SerialUSB.print("Y: ");
-		SerialUSB.println(Compass::y, 5);
-		SerialUSB.print("Z: ");
-		SerialUSB.println(Compass::z, 5);
+		FLY_PRINT("Compass X: ");
+		FLY_PRINTLN(Compass::x, 5);
+		FLY_PRINT("Compass Y: ");
+		FLY_PRINTLN(Compass::y, 5);
+		FLY_PRINT("Compass Z: ");
+		FLY_PRINTLN(Compass::z, 5);
 
-		SerialUSB.print("Temperature: ");
-		SerialUSB.println(Pressure::temperature);
-		SerialUSB.print("Pressure: ");
-		SerialUSB.println(Pressure::pressure);
-		SerialUSB.print("Altitude: ");
-		SerialUSB.println(Pressure::computeAltitude(), 5);
-		SerialUSB.print("ut: ");
-		SerialUSB.println(Pressure::debug_get_ut());
-		SerialUSB.print("up: ");
-		SerialUSB.println(Pressure::debug_get_up());
+		FLY_PRINT("Temperature: ");
+		FLY_PRINTLN(Pressure::temperature);
+		FLY_PRINT("Pressure: ");
+		FLY_PRINTLN(Pressure::pressure);
+		FLY_PRINT("Altitude: ");
+		FLY_PRINTLN(Pressure::computeAltitude(), 5);
+
+		FLY_PRINT("Accelerometer X:");
+		FLY_PRINTLN(Accelerometer::x);
+		FLY_PRINT("Accelerometer Y:");
+		FLY_PRINTLN(Accelerometer::y);
+		FLY_PRINT("Accelerometer Z:");
+		FLY_PRINTLN(Accelerometer::z);
 	}
 }
 
@@ -94,13 +103,16 @@ void loop(void * pvParameters)
 	while (1) {
 		while (SerialUSB.available()) {
 			uint8 input = SerialUSB.read();
-			SerialUSB.println((char)input);
+			FLY_PRINTLN((char)input);
 
 			switch (input) {
 			case ' ':
-				SerialUSB.println("spacebar, nice!");
+				FLY_PRINTLN("spacebar, nice!");
 
-				print_loop();
+				xTaskCreate(sensor_loop, (const signed char *)"sensor_loop", STACK_SIZE, NULL, 1, NULL);
+				xTaskCreate(print_loop, (const signed char *)"print_loop", STACK_SIZE, NULL, 1, NULL);
+
+				vTaskStartScheduler();
 
 				break;
 			case 'c':
@@ -110,12 +122,11 @@ void loop(void * pvParameters)
 
 				break;
 			default: // -------------------------------
-				SerialUSB.print("Unexpected byte: 0x");
-				SerialUSB.print((int)input, HEX);
+				FLY_PRINT("Unexpected byte: 0x");
+				FLY_PRINT((int)input, HEX);
 			}
 
-			SerialUSB.print("> ");
-			taskYIELD();
+			FLY_PRINT("> ");
 		}
 	}
 #ifdef NOTYET
@@ -139,11 +150,7 @@ int main(void)
 {
 	setup();
 
-	xTaskCreate(sensor_loop, (const signed char *)"sensor_loop", STACK_SIZE, NULL, 1, NULL);
-	xTaskCreate(loop, (const signed char *)"loop", STACK_SIZE, NULL, 1, NULL);
-
-	vTaskStartScheduler();
-//	loop(NULL);
+	loop(NULL);
 
 	return 0;
 }

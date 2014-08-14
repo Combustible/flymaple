@@ -72,7 +72,7 @@ namespace Compass
 	/**
 	 * Initialize Compass subsystem if not done already
 	 */
-	void init();
+	status init();
 
 	/**
 	 * Get the direction of the north magnetic pole into x,y,z

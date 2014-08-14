@@ -1,6 +1,7 @@
 #include "wirish.h"
 #include "Pressure.h"
 #include "MapleFreeRTOS.h"
+#include "flymaple_utils.h"
 
 using namespace Sensor;
 
@@ -9,7 +10,7 @@ using namespace Sensor;
 static bool gIsInit = false;
 
 /** BMP085 Pressure over sampling setting; 0-3 */
-static const uint8_t OSS = 0;
+static const uint8_t OSS = 3;
 
 /** Datasheet specified delay after initiating a pressure measurement, in milliseconds */
 static const uint8_t OSS_SAMPLE_DELAY_IN_MS[4] = {5, 8, 14, 26};
@@ -27,28 +28,35 @@ static int32_t ut, up;
 
 static inline void getRawReading(int32_t *new_ut, int32_t *new_up) {
 	uint8_t buffer[3];
+	static uint8_t temp_counter = 0;
 
 	/*********************** Raw Temperature ***********************/
 
-	write(BMP085_I2C_ADDR, BMP085_I2C_REG_CONTROL, BMP085_CMD_READ_TEMPERATURE);
+	// Only read the temperature every few calls
+	if (temp_counter == 0) {
+		write(BMP085_I2C_ADDR, BMP085_I2C_REG_CONTROL, BMP085_CMD_READ_TEMPERATURE);
 
-	// Wait 5 milliseconds
-	vTaskDelay(5 / portTICK_RATE_MS);
+		// Wait 5 milliseconds
+		vTaskDelay(5 / portTICK_RATE_MS);
 
-	read(BMP085_I2C_ADDR, BMP085_I2C_REG_CONTROL_OUTPUT, 2, buffer);
+		read(BMP085_I2C_ADDR, BMP085_I2C_REG_CONTROL_OUTPUT, 2, buffer);
 
-	*new_ut = (((int32_t)buffer[0]) << 8) | ((int32_t)buffer[1]);
+		*new_ut = (((int32_t)buffer[0]) << 8) | ((int32_t)buffer[1]);
 
-	// 1 millisecond delay between temperature and pressure
-	vTaskDelay(1 / portTICK_RATE_MS);
+		temp_counter = 10;
+
+		// 1 millisecond delay between temperature and pressure
+		vTaskDelay(1 / portTICK_RATE_MS);
+	} else {
+		temp_counter --;
+	}
 
 	/*********************** Raw Pressure ***********************/
 
 	write(BMP085_I2C_ADDR, BMP085_I2C_REG_CONTROL, (BMP085_CMD_READ_PRESSURE | (OSS << 6)));
 
 	// Wait up to 26 milliseconds, depending on OSS
-//	vTaskDelay(OSS_SAMPLE_DELAY_IN_MS[OSS] / portTICK_RATE_MS);
-	vTaskDelay(2 / portTICK_RATE_MS);
+	vTaskDelay(OSS_SAMPLE_DELAY_IN_MS[OSS] / portTICK_RATE_MS);
 
 	read(BMP085_I2C_ADDR, BMP085_I2C_REG_CONTROL_OUTPUT, 3, buffer);
 
@@ -63,8 +71,9 @@ static inline void getRawReading(int32_t *new_ut, int32_t *new_up) {
 int32_t Pressure::temperature = 250;
 int32_t Pressure::pressure = PRESSURE_AT_SEALEVEL_IN_PA;
 
-void Pressure::init()
+status Pressure::init()
 {
+	status ret;
 	uint8_t buffer[BMP085_I2C_REG_EEPROM_LEN];
 
 	if (gIsInit != true) {
@@ -89,8 +98,15 @@ void Pressure::init()
 		// Wait 100 milliseconds
 		vTaskDelay(100 / portTICK_RATE_MS);
 
-		getReading();
+		// Get the first reading
+		ret = getReading();
+		if (ret) {
+			FLY_PRINT_ERR("ERROR: Compass failure! First read returned error");
+			return ret;
+		}
 	}
+
+	return FLYMAPLE_SUCCESS;
 }
 
 status Pressure::getReading()
@@ -141,20 +157,16 @@ status Pressure::getReading()
 		//    or temperature < -50 degrees C or temperature > 70 degrees C
 		read_fail_count++;
 
-#ifndef NDEBUG
-		SerialUSB.println("WARNING: Pressure sensor read failure - value out of range");
-		SerialUSB.print("up = ");
-		SerialUSB.println(up);
-		SerialUSB.print("p = ");
-		SerialUSB.println(p);
-		SerialUSB.print("t = ");
-		SerialUSB.println(t);
-#endif
+		FLY_PRINT_ERR("WARNING: Pressure sensor read failure - value out of range");
+		FLY_PRINT("up = ");
+		FLY_PRINTLN(up);
+		FLY_PRINT("p = ");
+		FLY_PRINTLN(p);
+		FLY_PRINT("t = ");
+		FLY_PRINTLN(t);
 
 		if (read_fail_count >= 5) {
-#ifndef NDEBUG
-			SerialUSB.println("ERROR: Pressure sensor failure! Last 5 values out of range");
-#endif
+			FLY_PRINT_ERR("ERROR: Pressure sensor failure! Last 5 values out of range");
 			return FLYMAPLE_ERR_PRESSURE_FAIL;
 		}
 
@@ -178,11 +190,3 @@ float Pressure::computeAltitude()
 {
 	return (44330 * (1 - pow(((float)pressure / (float)PRESSURE_AT_SEALEVEL_IN_PA), 1.0 / 5.255)));
 }
-
-int32_t Pressure::debug_get_ut() {
-	return ut;
-}
-int32_t Pressure::debug_get_up() {
-	return up;
-}
-
