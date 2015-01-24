@@ -30,6 +30,8 @@
 #define BMP085_CMD_READ_PRESSURE        (0x34)
 #define PRESSURE_AT_SEALEVEL_IN_PA      (101325)
 
+/** Number of pressure readings for every temperature reading */
+#define PRESSURE_VS_TEMPERATURE_READ_RATIO (10)
 
 namespace Pressure
 {

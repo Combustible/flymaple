@@ -22,15 +22,15 @@
 
 #define ACCEL_I2C_ADDR                      (0x53)
 
-#define ACCEL_I2C_REG_DEVID                 (0x00)
-#define ACCEL_I2C_REG_OFSX                  (0x1D)
-#define ACCEL_I2C_REG_OFSY                  (0x1E)
-#define ACCEL_I2C_REG_OFSZ                  (0x1F)
-#define ACCEL_I2C_REG_BW_RATE               (0x2C)
-#define ACCEL_I2C_REG_POWER_CTL             (0x2D)
-#define ACCEL_I2C_REG_DATA_FORMAT           (0x31)
-#define ACCEL_I2C_REG_DATA                  (0x32)
-#define ACCEL_I2C_REG_FIFO_CTL              (0x38)
+#define ACCEL_REG_DEVID                     (0x00)
+#define ACCEL_REG_OFSX                      (0x1D)
+#define ACCEL_REG_OFSY                      (0x1E)
+#define ACCEL_REG_OFSZ                      (0x1F)
+#define ACCEL_REG_BW_RATE                   (0x2C)
+#define ACCEL_REG_POWER_CTL                 (0x2D)
+#define ACCEL_REG_DATA_FORMAT               (0x31)
+#define ACCEL_REG_DATA                      (0x32)
+#define ACCEL_REG_FIFO_CTL                  (0x38)
 
 #define ACCEL_DEVID                         (0xE5)
 

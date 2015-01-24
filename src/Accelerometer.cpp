@@ -15,7 +15,7 @@ static const uint8_t ofs[3] = {0, 0, 0};
 static inline void getRawReading(int16_t *new_x, int16_t *new_y, int16_t *new_z)
 {
 	uint8_t buffer[6];
-	read(ACCEL_I2C_ADDR, ACCEL_I2C_REG_DATA, 6, buffer);
+	read(ACCEL_I2C_ADDR, ACCEL_REG_DATA, 6, buffer);
 	*new_x = LITTLE_ENDIAN_INT16_FROM_PTR(&buffer[0]);
 	*new_y = LITTLE_ENDIAN_INT16_FROM_PTR(&buffer[2]);
 	*new_z = LITTLE_ENDIAN_INT16_FROM_PTR(&buffer[4]);
@@ -45,33 +45,33 @@ status Accelerometer::init()
 		Sensor::init();
 
 		// Check device id
-		read(ACCEL_I2C_ADDR, ACCEL_I2C_REG_DEVID, 1, &buffer[0]);
+		read(ACCEL_I2C_ADDR, ACCEL_REG_DEVID, 1, &buffer[0]);
 		if (buffer[0] != ACCEL_DEVID) {
 			FLY_PRINT_ERR("ERROR: Accelerometer failure! Got invalid device ID");
 			return FLYMAPLE_ERR_ACCELEROMETER_FAIL;
 		}
 
 		// Set offsets
-		write(ACCEL_I2C_ADDR, ACCEL_I2C_REG_OFSX, ofs[0]);
-		write(ACCEL_I2C_ADDR, ACCEL_I2C_REG_OFSY, ofs[1]);
-		write(ACCEL_I2C_ADDR, ACCEL_I2C_REG_OFSZ, ofs[2]);
+		write(ACCEL_I2C_ADDR, ACCEL_REG_OFSX, ofs[0]);
+		write(ACCEL_I2C_ADDR, ACCEL_REG_OFSY, ofs[1]);
+		write(ACCEL_I2C_ADDR, ACCEL_REG_OFSZ, ofs[2]);
 
 		// Set sample rate
-		write(ACCEL_I2C_ADDR, ACCEL_I2C_REG_BW_RATE, ACCEL_BW_RATE_100HZ);
+		write(ACCEL_I2C_ADDR, ACCEL_REG_BW_RATE, ACCEL_BW_RATE_100HZ);
 
 		// Set data format
-		write(ACCEL_I2C_ADDR, ACCEL_I2C_REG_DATA_FORMAT, ACCEL_DATA_FORMAT_SELF_TEST_DISABLE |
+		write(ACCEL_I2C_ADDR, ACCEL_REG_DATA_FORMAT, ACCEL_DATA_FORMAT_SELF_TEST_DISABLE |
 				ACCEL_DATA_FORMAT_FULL_RES_ENABLE |
 				ACCEL_DATA_FORMAT_RANGE_2G);
 
 		// Disable FIFO
-		write(ACCEL_I2C_ADDR, ACCEL_I2C_REG_FIFO_CTL, ACCEL_FIFO_CTL_MODE_BYPASS);
+		write(ACCEL_I2C_ADDR, ACCEL_REG_FIFO_CTL, ACCEL_FIFO_CTL_MODE_BYPASS);
 
 		// Wait 5 milliseconds
 		vTaskDelay(5 / portTICK_RATE_MS);
 
 		// Enable measurements
-		write(ACCEL_I2C_ADDR, ACCEL_I2C_REG_POWER_CTL, ACCEL_POWER_CTL_MEASURE_ENABLE);
+		write(ACCEL_I2C_ADDR, ACCEL_REG_POWER_CTL, ACCEL_POWER_CTL_MEASURE_ENABLE);
 
 		// Wait 100 milliseconds
 		vTaskDelay(100 / portTICK_RATE_MS);

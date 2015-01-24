@@ -43,7 +43,7 @@ static inline void getRawReading(int32_t *new_ut, int32_t *new_up) {
 
 		*new_ut = (((int32_t)buffer[0]) << 8) | ((int32_t)buffer[1]);
 
-		temp_counter = 10;
+		temp_counter = PRESSURE_VS_TEMPERATURE_READ_RATIO;
 
 		// 1 millisecond delay between temperature and pressure
 		vTaskDelay(1 / portTICK_RATE_MS);
