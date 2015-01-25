@@ -16,10 +16,11 @@
 #include "wirish.h"
 #include "MapleFreeRTOS.h"
 //#include "Test.h"
-//#include "GlobalXYZ.h"
+#include "GlobalXYZ.h"
 #include "Pressure.h"
 #include "Compass.h"
 #include "Accelerometer.h"
+#include "Gyroscope.h"
 #include "Sensor.h"
 #include "flymaple_utils.h"
 
@@ -40,64 +41,95 @@ void setup()
 	Serial2.begin(9600);
 }
 
+int global_error = 0;
+
 // TODO: Needs error handling somehow
-void sensor_loop(void * pvParameters) {
+void sensor_loop(void *pvParameters)
+{
 	portTickType xLastWakeTime;
-	const portTickType xFrequency = 100;
+	const portTickType xFrequency = 50;
 
 	/* Initialize sensors */
-	Compass::init();
-	Pressure::init();
-	Accelerometer::init();
+	global_error |= Compass::init();
+	global_error |= Pressure::init();
+	global_error |= Accelerometer::init();
+	global_error |= Gyroscope::init();
 
 	FLY_PRINTLN("Sensor initialization complete");
 
-	xLastWakeTime = xTaskGetTickCount ();
+	xLastWakeTime = xTaskGetTickCount();
 
 	while (1) {
 		// Wait for the next cycle.
-		vTaskDelayUntil( &xLastWakeTime, xFrequency );
+		vTaskDelayUntil(&xLastWakeTime, xFrequency);
 
-		Compass::getReading();
-		Pressure::getReading();
-		Accelerometer::getReading();
+		global_error |= Compass::getReading();
+		global_error |= Pressure::getReading();
+		global_error |= Accelerometer::getReading();
+		global_error |= Gyroscope::getReading();
+
+		GlobalXYZ::update();
 	}
 }
 
-void print_loop(void * pvParameters) {
+void print_loop(void *pvParameters)
+{
 	portTickType xLastWakeTime;
 	const portTickType xFrequency = 500;
 
-	xLastWakeTime = xTaskGetTickCount ();
+	// Wait a bit so any initialization messages can be read
+	vTaskDelay(5000 / portTICK_RATE_MS);
+
+	xLastWakeTime = xTaskGetTickCount();
 
 	while (1) {
 		// Wait for the next cycle.
-		vTaskDelayUntil( &xLastWakeTime, xFrequency );
+		vTaskDelayUntil(&xLastWakeTime, xFrequency);
 
-		FLY_PRINT("Compass X: ");
-		FLY_PRINTLN(Compass::x, 5);
-		FLY_PRINT("Compass Y: ");
-		FLY_PRINTLN(Compass::y, 5);
-		FLY_PRINT("Compass Z: ");
-		FLY_PRINTLN(Compass::z, 5);
+		if (!global_error) {
+			CLEAR_SCREEN();
 
-		FLY_PRINT("Temperature: ");
-		FLY_PRINTLN(Pressure::temperature);
-		FLY_PRINT("Pressure: ");
-		FLY_PRINTLN(Pressure::pressure);
-		FLY_PRINT("Altitude: ");
-		FLY_PRINTLN(Pressure::computeAltitude(), 5);
+			// Print data
+			FLY_PRINT("Compass X: ");
+			FLY_PRINTLN(Compass::x, 5);
+			FLY_PRINT("Compass Y: ");
+			FLY_PRINTLN(Compass::y, 5);
+			FLY_PRINT("Compass Z: ");
+			FLY_PRINTLN(Compass::z, 5);
 
-		FLY_PRINT("Accelerometer X:");
-		FLY_PRINTLN(Accelerometer::x);
-		FLY_PRINT("Accelerometer Y:");
-		FLY_PRINTLN(Accelerometer::y);
-		FLY_PRINT("Accelerometer Z:");
-		FLY_PRINTLN(Accelerometer::z);
+			FLY_PRINT("Temperature: ");
+			FLY_PRINTLN(Pressure::temperature);
+			FLY_PRINT("Pressure: ");
+			FLY_PRINTLN(Pressure::pressure);
+			FLY_PRINT("Altitude: ");
+			FLY_PRINTLN(Pressure::computeAltitude(), 5);
+
+			FLY_PRINT("Accelerometer X:");
+			FLY_PRINTLN(Accelerometer::x);
+			FLY_PRINT("Accelerometer Y:");
+			FLY_PRINTLN(Accelerometer::y);
+			FLY_PRINT("Accelerometer Z:");
+			FLY_PRINTLN(Accelerometer::z);
+
+			FLY_PRINT("Gyro X:");
+			FLY_PRINTLN(Gyroscope::x);
+			FLY_PRINT("Gyro Y:");
+			FLY_PRINTLN(Gyroscope::y);
+			FLY_PRINT("Gyro Z:");
+			FLY_PRINTLN(Gyroscope::z);
+
+			FLY_PRINT("up X:");
+			FLY_PRINTLN(GlobalXYZ::up[0]);
+			FLY_PRINT("up Y:");
+			FLY_PRINTLN(GlobalXYZ::up[1]);
+			FLY_PRINT("up Z:");
+			FLY_PRINTLN(GlobalXYZ::up[2]);
+		}
 	}
 }
 
-void set_all_motors(HardwareTimer *timer, uint16_t compare) {
+void set_all_motors(HardwareTimer *timer, uint16_t compare)
+{
 	timer->setCompare(TIMER_CH1, compare);
 	timer->setCompare(TIMER_CH2, compare);
 	timer->setCompare(TIMER_CH3, compare);
@@ -105,7 +137,8 @@ void set_all_motors(HardwareTimer *timer, uint16_t compare) {
 }
 
 
-void fly_test(void) {
+void fly_test(void)
+{
 	pinMode(D12, PWM);
 	pinMode(D11, PWM);
 	pinMode(D27, PWM);
@@ -189,7 +222,7 @@ void fly_test(void) {
 }
 
 /* Please Do Not Remove & Edit Following Code */
-void loop(void * pvParameters)
+void loop(void *pvParameters)
 {
 	while (1) {
 		while (SerialUSB.available()) {

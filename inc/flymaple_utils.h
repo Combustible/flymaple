@@ -18,6 +18,13 @@
 #define LITTLE_ENDIAN_UINT16_FROM_PTR(ptr) \
 	(((uint16_t)(*((uint8_t *)ptr))) | ((uint16_t)(*(((uint8_t *)ptr) + 1)) << 8))
 
+#define CLEAR_SCREEN() \
+	{ \
+		const uint8 clear_screen_seq[3] = {0x1b, 0x63, 0x0a}; \
+		SerialUSB.write(clear_screen_seq, sizeof(clear_screen_seq)); \
+	}
+
+
 
 #ifdef NDEBUG
 
@@ -27,8 +34,8 @@
 
 #else /* NDEBUG */
 
-#define FLY_PRINT(...)         SerialUSB.print(__VA_ARGS__)
-#define FLY_PRINTLN(...)       SerialUSB.println(__VA_ARGS__)
+#define FLY_PRINT(...)      SerialUSB.print(__VA_ARGS__)
+#define FLY_PRINTLN(...)    SerialUSB.println(__VA_ARGS__)
 
 #define FLY_PRINT_ERR(...)             \
 	do {                             \

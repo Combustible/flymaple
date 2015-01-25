@@ -50,9 +50,7 @@
 #define ACCEL_POWER_CTL_MEASURE_DISABLE     (B00000000)
 
 #define ACCEL_DATA_FORMAT_SELF_TEST_ENABLE  (B10000000)
-#define ACCEL_DATA_FORMAT_SELF_TEST_DISABLE (B00000000)
 #define ACCEL_DATA_FORMAT_FULL_RES_ENABLE   (B00001000)
-#define ACCEL_DATA_FORMAT_FULL_RES_DISABLE  (B00000000)
 #define ACCEL_DATA_FORMAT_RANGE_2G          (B00000000)
 #define ACCEL_DATA_FORMAT_RANGE_4G          (B00000001)
 #define ACCEL_DATA_FORMAT_RANGE_8G          (B00000010)
@@ -71,6 +69,8 @@ namespace Accelerometer
 	extern int16_t x;
 	extern int16_t y;
 	extern int16_t z;
+
+	extern int16_t gravity_magnitude;
 
 	/**
 	 * Initialize Accelerometer subsystem if not done already

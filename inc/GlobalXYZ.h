@@ -1,4 +1,4 @@
-#ifdef GLOBALXYZ_H
+#ifndef GLOBALXYZ_H
 #define GLOBALXYZ_H
 
 /**
@@ -15,8 +15,51 @@
 #include "Vector.h"
 #include "Sensor.h"
 
-#define UPDATE_INTERVAL 100
+// If you change this, you probably also have to change the sampling rate of the sensors
+#define UPDATE_INTERVAL 	50
+#define UPDATE_FREQ_IN_HZ 	(1000/UPDATE_INTERVAL)
 
+#define GYRO_TO_ACCEL_WEIGHT_RATIO 	6.0
+
+namespace GlobalXYZ
+{
+	/*
+	 * The 3D vector orientation, compared to the normal vector to a horizontal plane.
+	 *
+	 * If the sensors on the board are horizontal, the value should be <0, 0, 1>
+	 *
+	 * up[0] - X component
+	 * up[1] - Y component
+	 * up[2] - Z component
+	 *
+	 * Accelerometer data is augmented with gyroscope data to obtain this value
+	 */
+	extern double up[3];
+
+	/*
+	 * Relative height from the altitude when the board initialized.
+	 *
+	 * Barometer data is augmented with accelerometer data to obtain this value
+	 */
+	extern double rel_height;
+
+	/*
+	 * 2D vector of rotation. This is tilt-compensated.
+	 *
+	 * Compass data is augmented with orientation data and gyroscope data to obtain this value
+	 *
+	 * orientation[0] - north component
+	 * orientation[1] - east component
+	 */
+	extern double orientation[2];
+
+	/**
+	 * Update the values using sensor data
+	 */
+	void update();
+}
+
+#ifdef NOTYET
 class GlobalXYZ {
 	static GlobalXYZ xyz;
 	/**
@@ -73,5 +116,6 @@ public:
 };
 
 void vTaskUpdateXYZ(void * pvParameters);
+#endif
 
 #endif

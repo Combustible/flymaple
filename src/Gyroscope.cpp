@@ -1,78 +1,152 @@
-#ifdef NOTYET
 #include "wirish.h"
 #include "Gyroscope.h"
+#include "MapleFreeRTOS.h"
+#include "flymaple_utils.h"
 
-#ifdef FROM_HEADER_FILE
-	static Gyroscope gyroscope;
+using namespace Sensor;
 
-	static const unsigned char GyroAddress;
-	static const unsigned char PWR_MGM;
-	static const unsigned char DLPF_FS;
-	static const unsigned char INT_CFG;
-	static const unsigned char SMPLRT_DIV;
-	static const unsigned char GYROX_H;
-	static const short sign[3];
-	static short offset[3];
-	//ITG3205 specification 上面定义的精度
-	//(http://www.dzsc.com/uploadfile/company/772705/2011821231617930.pdf)
-	static const float sensitivity;
+/********************** Locally Accessible **********************/
 
-#endif
-Gyroscope Gyroscope::gyroscope;
-const unsigned char Gyroscope::GyroAddress = 0x68;
-const unsigned char Gyroscope::PWR_MGM = 0x3e;
-const unsigned char Gyroscope::DLPF_FS = 0x16;
-const unsigned char Gyroscope::INT_CFG = 0x17;
-const unsigned char Gyroscope::SMPLRT_DIV = 0x15;
-const unsigned char Gyroscope::GYROX_H = 0x1d;
-const short Gyroscope::sign[3] = {1,1,1};
-const float Gyroscope::sensitivity = 14.375;
-short Gyroscope::offset[3] = {0,0,0};
+static bool gIsInit = false;
 
-Gyroscope::Gyroscope()
+// Device-specific calibration information
+int16_t ofs[3] = {0, 0, 0};
+
+static inline void getRawReading(int16_t *new_x, int16_t *new_y, int16_t *new_z)
 {
-	write(GyroAddress,PWR_MGM,0x00); delay(1);	//重启设备
-	write(GyroAddress,SMPLRT_DIV,0x07);			//设置采样率 1khz(内部采样率)/(1+7)=125hz
-	write(GyroAddress,DLPF_FS,0x1e);	 delay(1);	//设置内部采样频率为1khz
-	write(GyroAddress,INT_CFG, 0x00);			
-	
-	//计算误差
-	float accumulator[] = {0,0,0};
-	for(int i = 0 ; i < 100 ; i++) {
-		short x,y,z;
-		getRawReading(x,y,z);
-		accumulator[0] += x;
-		accumulator[1] += y;
-		accumulator[2] += z;
+	uint8_t buffer[6];
+	read(GYRO_I2C_ADDR, GYRO_REG_DATA, 6, buffer);
+	*new_x = BIG_ENDIAN_INT16_FROM_PTR(&buffer[0]) - ofs[0];
+	*new_y = BIG_ENDIAN_INT16_FROM_PTR(&buffer[2]) - ofs[1];
+	*new_z = BIG_ENDIAN_INT16_FROM_PTR(&buffer[4]) - ofs[2];
+}
+
+/********************** Globally Accessible **********************/
+
+int16_t Gyroscope::x;
+int16_t Gyroscope::y;
+int16_t Gyroscope::z;
+
+status Gyroscope::init()
+{
+	status ret;
+	unsigned char buffer[2];
+
+	if (gIsInit != true) {
+		Sensor::init();
+
+		// Check device id
+		read(GYRO_I2C_ADDR, GYRO_REG_DEVID, 1, &buffer[0]);
+		if ((buffer[0] & 0x7E) != GYRO_DEVID) {
+			FLY_PRINT_ERR("ERROR: Gyroscope failure! Got invalid device ID");
+			return FLYMAPLE_ERR_GYROSCOPE_FAIL;
+		}
+
+		// Set power management - use X gyro as a clock reference as recommended by datasheet
+		write(GYRO_I2C_ADDR, GYRO_REG_PWR_MGM, GYRO_PWR_MGM_CLK_SEL_GYRO_X);
+
+		// Wait 5 milliseconds
+		vTaskDelay(5 / portTICK_RATE_MS);
+
+		// Set sample rate
+		write(GYRO_I2C_ADDR, GYRO_REG_DLPF_FS, GYRO_DLPF_FS_SEL_2000DEG | GYRO_DLPF_CFG_BW_20HZ);
+
+		// Set the sample rate divider to update the registers at approximately 30 Hz
+		// 1kHz / (33 + 1) = 29.411
+		write(GYRO_I2C_ADDR, GYRO_REG_SMPLRT_DIV, 33);
+
+		// Interrupts are not used
+		write(GYRO_I2C_ADDR, GYRO_REG_INT_CFG, 0x00);
+
+		// Wait 100 milliseconds
+		vTaskDelay(100 / portTICK_RATE_MS);
+
+		// Average 10 samples (500 ms) to get device offset. This is orientation independent.
+		{
+			int16_t temp_x, temp_y, temp_z;
+			int32_t acc_x = 0, acc_y = 0, acc_z = 0; // Accumulator
+
+			// Throw away first reading
+			getRawReading(&temp_x, &temp_y, &temp_z);
+
+			for (int i = 0 ; i < 10 ; i++) {
+				getRawReading(&temp_x, &temp_y, &temp_z);
+				acc_x += temp_x;
+				acc_y += temp_y;
+				acc_z += temp_z;
+				vTaskDelay(20 / portTICK_RATE_MS);
+			}
+
+			ofs[0] += acc_x / 10;
+			ofs[1] += acc_y / 10;
+			ofs[2] += acc_z / 10;
+		}
+
+		// Get the first reading
+		ret = getReading();
+		if (ret) {
+			FLY_PRINT_ERR("ERROR: Gyroscope failure! First read returned error");
+			return ret;
+		}
+
+
+		gIsInit = true;
 	}
-	for(int i = 0 ; i < 3 ; i++) offset[i] = accumulator[i] / 100;
+
+	return FLYMAPLE_SUCCESS;
 }
 
-void Gyroscope::getRawReading(short& x,short& y,short& z)
+status Gyroscope::getReading()
 {
-	unsigned char buffer[6];
-	read(GyroAddress,GYROX_H,6,buffer);
-    x = (((short)buffer[0]) << 8) | buffer[1];    // X axis
-    y = (((short)buffer[2]) << 8) | buffer[3];    // Y axis
-    z = (((short)buffer[4]) << 8) | buffer[5];    // Z axis
+	int16_t tmpx = -32760, tmpy = -32760, tmpz = -32760;
+	static uint8_t read_fail_count = 0;
+
+	getRawReading(&tmpx, &tmpy, &tmpz);
+
+	/*
+	 *  Sensor is only rated for 2000 degrees / second, at 14.375 bits per degree.
+	 *  That's roughly +-26750 range of values
+	 *  This comparison will match values much outside that range, including 0xFFFF
+	 */
+	if (tmpx < -30000 || tmpy < -30000 || tmpz < -30000 || tmpx > 30000 || tmpy > 30000 || tmpz > 30000) {
+		read_fail_count++;
+
+		FLY_PRINT_ERR("WARNING: Gyroscope read failure - value out of range");
+
+		if (read_fail_count >= 5) {
+			FLY_PRINT_ERR("ERROR: Gyroscope failure! Last 5 values out of range");
+			return FLYMAPLE_ERR_GYROSCOPE_FAIL;
+		}
+
+		return FLYMAPLE_WARN_GYROSCOPE_READ_FAIL;
+	}
+
+	/*
+	 * Update the global values
+	 *
+	 * Need to do this in a critical section, just in case control transfers in the middle
+	 * leaving one or two components updated and the others stale.
+	 */
+	taskENTER_CRITICAL();
+	x = tmpx;
+	y = tmpy;
+	z = tmpz;
+	taskEXIT_CRITICAL();
+
+	read_fail_count = 0;
+
+	return FLYMAPLE_SUCCESS;
 }
 
-Gyroscope::~Gyroscope()
+void Gyroscope::computeRadians(double *rad_x, double *rad_y, double *rad_z)
 {
+	/*
+	 * Need to do this in a critical section, just in case control transfers in the middle
+	 * leaving one or two components updated and the others stale.
+	 */
+	taskENTER_CRITICAL();
+	*rad_x = ((double)x / GYRO_SENSITIVITY) * (PI / 180.0);
+	*rad_y = ((double)y / GYRO_SENSITIVITY) * (PI / 180.0);
+	*rad_z = ((double)z / GYRO_SENSITIVITY) * (PI / 180.0);
+	taskEXIT_CRITICAL();
 }
-
-Vector<double> Gyroscope::getReading()
-{
-	short x,y,z;
-	gyroscope.getRawReading(x,y,z);
-	x = sign[0] * (x - offset[0]);
-	y = sign[1] * (y - offset[1]);
-	z = sign[2] * (z - offset[2]);
-	Vector<double> retVal(3);
-	retVal(0) = (x * 1.0 / sensitivity) * (3.1415926 / 180);
-	retVal(1) = (y * 1.0 / sensitivity) * (3.1415926 / 180);
-	retVal(2) = (z * 1.0 / sensitivity) * (3.1415926 / 180);
-	//NOTICE:返回的向量的单位是 弧度/s
-	return retVal;
-}
-#endif

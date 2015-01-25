@@ -1,3 +1,123 @@
+#include "wirish.h"
+#include "GlobalXYZ.h"
+#include "Accelerometer.h"
+#include "Gyroscope.h"
+#include "Compass.h"
+#include "Pressure.h"
+#include "MapleFreeRTOS.h"
+#include "flymaple_utils.h"
+
+using namespace Sensor;
+using namespace GlobalXYZ;
+
+/********************** Locally Accessible **********************/
+
+static inline void update_up_vector(void)
+{
+	double new_up[3];
+	double temp_up[3];
+	double accel_x, accel_y, accel_z;
+	double gyro_x, gyro_y, gyro_z;
+	double magnitude;
+
+	static int loopcount = 0;
+
+
+	// Need to get all the sensor data at once
+	taskENTER_CRITICAL();
+
+	new_up[0] = up[0];
+	new_up[1] = up[1];
+	new_up[2] = up[2];
+
+	accel_x = (double)Accelerometer::x;
+	accel_y = (double)Accelerometer::y;
+	accel_z = (double)Accelerometer::z;
+
+	Gyroscope::computeRadians(&gyro_x, &gyro_y, &gyro_z);
+
+	taskEXIT_CRITICAL();
+
+	// Normalize accelerometer vector
+	magnitude = sqrt(accel_x*accel_x + accel_y*accel_y + accel_z*accel_z);
+	accel_x /= magnitude;
+	accel_y /= magnitude;
+	accel_z /= magnitude;
+
+	// Reduce radians per second to radians per tick, and update sign to match accelerometer
+	gyro_x /= UPDATE_FREQ_IN_HZ * (-1);
+	gyro_y /= UPDATE_FREQ_IN_HZ * (-1);
+	gyro_z /= UPDATE_FREQ_IN_HZ;
+
+#ifdef ROTATION_2D_TEST_OLD
+	temp_up[0] = new_up[0] * cos(gyro_y) + new_up[2] * sin(gyro_y);
+	temp_up[1] = new_up[1];
+	temp_up[2] = -new_up[0] * sin(gyro_y) + new_up[2] * cos(gyro_y);
+	for(int i = 0; i < 3; i++) new_up[i] = temp_up[i];
+#endif
+
+	/*
+	 *  Rotate the up vector by the gyroscope rotations, x first, then y
+	 *
+	 *  Note that z rotation is not used here! @todo - investigate ramifications
+	 */
+
+	double sinx = sin(gyro_x);
+	double cosx = cos(gyro_x);
+	double siny = sin(gyro_y);
+	double cosy = cos(gyro_y);
+
+	temp_up[0] = new_up[0] * cosy + new_up[1] * sinx * siny + new_up[2] * siny * cosx;
+	temp_up[1] = new_up[1] * cosx - new_up[2] * sinx;
+	temp_up[2] = -new_up[0] * siny + new_up[1] * cosy * sinx + new_up[2] * cosx * cosy;
+	for(int i = 0; i < 3; i++) new_up[i] = temp_up[i];
+
+
+	/*
+	 * Combine gyroscope prediction with accelerometer feedback by averaging the vectors
+	 * Below code tends towards gyroscope value with 8x more weight
+	 */
+	new_up[0] = (GYRO_TO_ACCEL_WEIGHT_RATIO * new_up[0] + accel_x) / (GYRO_TO_ACCEL_WEIGHT_RATIO + 1);
+	new_up[1] = (GYRO_TO_ACCEL_WEIGHT_RATIO * new_up[1] + accel_y) / (GYRO_TO_ACCEL_WEIGHT_RATIO + 1);
+	new_up[2] = (GYRO_TO_ACCEL_WEIGHT_RATIO * new_up[2] + accel_z) / (GYRO_TO_ACCEL_WEIGHT_RATIO + 1);
+
+	// Floating point math isn't perfect, so every few runs re-normalize the vector
+	if(loopcount > 5) {
+		magnitude = sqrt(new_up[0]*new_up[0] + new_up[1]*new_up[1] + new_up[2]*new_up[2]);
+		accel_x /= magnitude;
+		accel_y /= magnitude;
+		accel_z /= magnitude;
+		loopcount = 0;
+	}
+
+
+	// Update the globally accessible values
+	taskENTER_CRITICAL();
+
+	up[0] = new_up[0];
+	up[1] = new_up[1];
+	up[2] = new_up[2];
+
+	taskEXIT_CRITICAL();
+
+	loopcount ++;
+}
+
+
+/********************** Globally Accessible **********************/
+
+double GlobalXYZ::up[3] = {0, 0, 1};
+double GlobalXYZ::rel_height;
+double GlobalXYZ::orientation[2];
+
+void GlobalXYZ::update()
+{
+	update_up_vector();
+}
+
+
+
+
 
 #ifdef NOTYET
 #include <cmath>

@@ -10,7 +10,7 @@ using namespace Sensor;
 static bool gIsInit = false;
 
 /** BMP085 Pressure over sampling setting; 0-3 */
-static const uint8_t OSS = 3;
+static const uint8_t OSS = 2;
 
 /** Datasheet specified delay after initiating a pressure measurement, in milliseconds */
 static const uint8_t OSS_SAMPLE_DELAY_IN_MS[4] = {5, 8, 14, 26};
@@ -26,7 +26,8 @@ static uint16_t b5;
 // Raw temperature and pressure values from the sensor
 static int32_t ut, up;
 
-static inline void getRawReading(int32_t *new_ut, int32_t *new_up) {
+static inline void getRawReading(int32_t *new_ut, int32_t *new_up)
+{
 	uint8_t buffer[3];
 	static uint8_t temp_counter = 0;
 
@@ -61,8 +62,8 @@ static inline void getRawReading(int32_t *new_ut, int32_t *new_up) {
 	read(BMP085_I2C_ADDR, BMP085_I2C_REG_CONTROL_OUTPUT, 3, buffer);
 
 	*new_up = ((((int32_t)buffer[0]) << 16) |
-		       (((int32_t)buffer[1]) << 8 ) |
-		       (((int32_t)buffer[2])      )   ) >> (8 - OSS);
+	           (((int32_t)buffer[1]) << 8) |
+	           (((int32_t)buffer[2]))) >> (8 - OSS);
 }
 
 /********************** Globally Accessible **********************/

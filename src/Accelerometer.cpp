@@ -25,9 +25,9 @@ static inline void getRawReading(int16_t *new_x, int16_t *new_y, int16_t *new_z)
 Accelerometer Accelerometer::accelerometer;
 const unsigned short Accelerometer::GRAVITY = 248;
 //NOTICE:加速仪的z输出是飞机提坐标系的Z的反方向
-const short Accelerometer::sign[3] = {1,1,-1};
+const short Accelerometer::sign[3] = {1, 1, -1};
 const float Accelerometer::sensitivity = 0.004;
-short Accelerometer::offset[3] = {0,0,0};
+short Accelerometer::offset[3] = {0, 0, 0};
 #endif
 
 /********************** Globally Accessible **********************/
@@ -35,6 +35,7 @@ short Accelerometer::offset[3] = {0,0,0};
 int16_t Accelerometer::x;
 int16_t Accelerometer::y;
 int16_t Accelerometer::z;
+int16_t Accelerometer::gravity_magnitude;
 
 status Accelerometer::init()
 {
@@ -57,12 +58,12 @@ status Accelerometer::init()
 		write(ACCEL_I2C_ADDR, ACCEL_REG_OFSZ, ofs[2]);
 
 		// Set sample rate
-		write(ACCEL_I2C_ADDR, ACCEL_REG_BW_RATE, ACCEL_BW_RATE_100HZ);
+		write(ACCEL_I2C_ADDR, ACCEL_REG_BW_RATE, ACCEL_BW_RATE_25HZ);
 
 		// Set data format
-		write(ACCEL_I2C_ADDR, ACCEL_REG_DATA_FORMAT, ACCEL_DATA_FORMAT_SELF_TEST_DISABLE |
-				ACCEL_DATA_FORMAT_FULL_RES_ENABLE |
-				ACCEL_DATA_FORMAT_RANGE_2G);
+		write(ACCEL_I2C_ADDR,
+		      ACCEL_REG_DATA_FORMAT,
+		      ACCEL_DATA_FORMAT_FULL_RES_ENABLE | ACCEL_DATA_FORMAT_RANGE_2G);
 
 		// Disable FIFO
 		write(ACCEL_I2C_ADDR, ACCEL_REG_FIFO_CTL, ACCEL_FIFO_CTL_MODE_BYPASS);
@@ -73,8 +74,35 @@ status Accelerometer::init()
 		// Enable measurements
 		write(ACCEL_I2C_ADDR, ACCEL_REG_POWER_CTL, ACCEL_POWER_CTL_MEASURE_ENABLE);
 
-		// Wait 100 milliseconds
-		vTaskDelay(100 / portTICK_RATE_MS);
+		// Wait 1 second
+		vTaskDelay(1000 / portTICK_RATE_MS);
+
+		// Average 10 samples (500 ms) to determine gravity magnitude.
+		// This is orientation independent, as long as the board is not moving
+		{
+			int16_t temp_x, temp_y, temp_z;
+			int32_t acc_x = 0, acc_y = 0, acc_z = 0; // Accumulator
+
+			// Throw away first reading
+			getRawReading(&temp_x, &temp_y, &temp_z);
+
+			for (int i = 0 ; i < 10 ; i++) {
+				getRawReading(&temp_x, &temp_y, &temp_z);
+				acc_x += temp_x;
+				acc_y += temp_y;
+				acc_z += temp_z;
+				vTaskDelay(20 / portTICK_RATE_MS);
+			}
+
+			// Compute average vector magnitude
+			gravity_magnitude = sqrt(((double)acc_x * (double)acc_x) / 100.0 +
+			                         ((double)acc_y * (double)acc_y) / 100.0 +
+			                         ((double)acc_z * (double)acc_z) / 100.0);
+#ifdef DEBUG
+			FLY_PRINT("Gravity magnitude is: ");
+			FLY_PRINTLN(gravity_magnitude);
+#endif
+		}
 
 		// Get the first reading
 		ret = getReading();
@@ -89,23 +117,6 @@ status Accelerometer::init()
 	return FLYMAPLE_SUCCESS;
 }
 
-
-#ifdef OLD
-	//计算误差(静止状态下加速仪应该所有读数是0，如果不为零就是误差)
-	float accumulator[] = {0,0,0};
-	for(int i = 0 ; i < 100 ; i++) {
-		short x,y,z;
-		getRawReading(x,y,z);
-		accumulator[0] += x;
-		accumulator[1] += y;
-		accumulator[2] += z;
-	}
-	for(int i = 0 ; i < 3 ; i++) accumulator[i] /= 100;
-	//FIXME:程序假设飞机一开始水平摆放，但是不一定正确
-	accumulator[2] -= GRAVITY;
-	for(int i = 0 ; i < 3 ; i++) offset[i] = accumulator[i];
-#endif
-
 status Accelerometer::getReading()
 {
 	int16_t tmpx = -32760, tmpy = -32760, tmpz = -32760;
@@ -113,7 +124,8 @@ status Accelerometer::getReading()
 
 	getRawReading(&tmpx, &tmpy, &tmpz);
 
-	if (tmpx < -30000 && tmpy < -30000 && tmpz < -30000) {
+	// 30000 is past the maximum sensor range. This also catches 0xFFFF as an error.
+	if (tmpx < -30000 || tmpy < -30000 || tmpz < -30000 || tmpx > 30000 || tmpy > 30000 || tmpz > 30000) {
 		read_fail_count++;
 
 		FLY_PRINT_ERR("WARNING: Accelerometer read failure - value out of range");
