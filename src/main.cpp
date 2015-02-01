@@ -22,6 +22,7 @@
 #include "Accelerometer.h"
 #include "Gyroscope.h"
 #include "Sensor.h"
+#include "Motor.h"
 #include "flymaple_utils.h"
 
 #define PWM_PIN 2
@@ -75,7 +76,7 @@ void sensor_loop(void *pvParameters)
 void print_loop(void *pvParameters)
 {
 	portTickType xLastWakeTime;
-	const portTickType xFrequency = 500;
+	const portTickType xFrequency = 150;
 
 	// Wait a bit so any initialization messages can be read
 	vTaskDelay(5000 / portTICK_RATE_MS);
@@ -90,132 +91,95 @@ void print_loop(void *pvParameters)
 			CLEAR_SCREEN();
 
 			// Print data
-			FLY_PRINT("Compass X: ");
+			FLY_PRINT("Comp X: ");
 			FLY_PRINTLN(Compass::x, 5);
-			FLY_PRINT("Compass Y: ");
+			FLY_PRINT("Comp Y: ");
 			FLY_PRINTLN(Compass::y, 5);
-			FLY_PRINT("Compass Z: ");
+			FLY_PRINT("Comp Z: ");
 			FLY_PRINTLN(Compass::z, 5);
 
-			FLY_PRINT("Temperature: ");
+			FLY_PRINT("Temp: ");
 			FLY_PRINTLN(Pressure::temperature);
-			FLY_PRINT("Pressure: ");
+			FLY_PRINT("Pres: ");
 			FLY_PRINTLN(Pressure::pressure);
-			FLY_PRINT("Altitude: ");
+			FLY_PRINT("Alt : ");
 			FLY_PRINTLN(Pressure::computeAltitude(), 5);
 
-			FLY_PRINT("Accelerometer X:");
+			FLY_PRINT("Acc X:");
 			FLY_PRINTLN(Accelerometer::x);
-			FLY_PRINT("Accelerometer Y:");
+			FLY_PRINT("Acc Y:");
 			FLY_PRINTLN(Accelerometer::y);
-			FLY_PRINT("Accelerometer Z:");
+			FLY_PRINT("Acc Z:");
 			FLY_PRINTLN(Accelerometer::z);
 
-			FLY_PRINT("Gyro X:");
+			FLY_PRINT("Gyr X:");
 			FLY_PRINTLN(Gyroscope::x);
-			FLY_PRINT("Gyro Y:");
+			FLY_PRINT("Gyr Y:");
 			FLY_PRINTLN(Gyroscope::y);
-			FLY_PRINT("Gyro Z:");
+			FLY_PRINT("Gyr Z:");
 			FLY_PRINTLN(Gyroscope::z);
 
-			FLY_PRINT("up X:");
+			FLY_PRINT("Up X:");
 			FLY_PRINTLN(GlobalXYZ::up[0]);
-			FLY_PRINT("up Y:");
+			FLY_PRINT("Up Y:");
 			FLY_PRINTLN(GlobalXYZ::up[1]);
-			FLY_PRINT("up Z:");
+			FLY_PRINT("Up Z:");
 			FLY_PRINTLN(GlobalXYZ::up[2]);
-		}
-	}
-}
 
-void set_all_motors(HardwareTimer *timer, uint16_t compare)
-{
-	timer->setCompare(TIMER_CH1, compare);
-	timer->setCompare(TIMER_CH2, compare);
-	timer->setCompare(TIMER_CH3, compare);
-	timer->setCompare(TIMER_CH4, compare);
-}
+			uint16_t motorspeed[4];
+			Motor::getspeed(motorspeed);
+			FLY_PRINT("Spd 0:");
+			FLY_PRINTLN(motorspeed[0]);
+			FLY_PRINT("Spd 1:");
+			FLY_PRINTLN(motorspeed[1]);
+			FLY_PRINT("Spd 2:");
+			FLY_PRINTLN(motorspeed[2]);
+			FLY_PRINT("Spd 3:");
+			FLY_PRINTLN(motorspeed[3]);
 
+			FLY_PRINTLN();
+			FLY_PRINTLN("Commands: i e d a ; ' '");
 
-void fly_test(void)
-{
-	pinMode(D12, PWM);
-	pinMode(D11, PWM);
-	pinMode(D27, PWM);
-	pinMode(D28, PWM);
-	HardwareTimer timer3(3);
+			if (SerialUSB.available()) {
+				uint8 input = SerialUSB.read();
+				FLY_PRINTLN((char)input);
 
-	timer3.pause();
-	timer3.setCount(0);
+				switch (input) {
+				case 'i':
+					FLY_PRINTLN("Initializing motors");
+					Motor::init();
 
-	timer3.setPeriod(20000);
-	timer3.setMode(TIMER_CH1, TIMER_PWM);
-	timer3.setMode(TIMER_CH2, TIMER_PWM);
-	timer3.setMode(TIMER_CH3, TIMER_PWM);
-	timer3.setMode(TIMER_CH4, TIMER_PWM);
+					break;
+				case 'e':
+					FLY_PRINTLN("Enabling motors");
+					Motor::enable();
 
-	uint16_t overflow = timer3.getOverflow();
-	uint16_t compare_min = overflow / 20;
-	uint16_t compare_max = overflow / 10;
-	uint16_t compare = compare_min;
+					break;
+				case 'd':
+					FLY_PRINTLN("Disabling motors");
+					Motor::disable();
 
-	set_all_motors(&timer3, compare);
+					break;
+				case 'a':
+					Motor::update(MOTOR_COMPUTE_NEW_SPEED(motorspeed[0], 100));
 
-	timer3.refresh();
-	timer3.resume();
+					break;
+				case ';':
+					Motor::update(MOTOR_COMPUTE_NEW_SPEED(motorspeed[0], -100));
 
-	FLY_PRINT("overflow: ");
-	FLY_PRINTLN(overflow);
+					break;
+				case ' ':
+					FLY_PRINTLN("Stopping motors");
 
-	FLY_PRINT("compare_min, compare_max: ");
-	FLY_PRINT(compare_min);
-	FLY_PRINT(",");
-	FLY_PRINTLN(compare_max);
+					Motor::stop();
 
-
-	while (1) {
-		while (SerialUSB.available()) {
-			uint8 input = SerialUSB.read();
-			FLY_PRINTLN((char)input);
-
-			switch (input) {
-			case '+':
-				FLY_PRINTLN("MAXIMUM SPEED");
-
-				compare = compare_max;
-				set_all_motors(&timer3, compare);
-
-				break;
-			case 'a':
-				compare += 100;
-				if (compare > compare_max) {
-					compare = compare_max;
+					break;
+				default: // -------------------------------
+					FLY_PRINT("Unexpected byte: 0x");
+					FLY_PRINT((int)input, HEX);
 				}
 
-				FLY_PRINTLN(compare);
-				set_all_motors(&timer3, compare);
-				break;
-			case ';':
-				compare -= 100;
-				if (compare < compare_min) {
-					compare = compare_min;
-				}
-
-				FLY_PRINTLN(compare);
-				set_all_motors(&timer3, compare);
-				break;
-			case ' ':
-				FLY_PRINTLN("spacebar, nice!");
-
-				compare = compare_min;
-				set_all_motors(&timer3, compare);
-
-				break;
-			default: // -------------------------------
-				FLY_PRINT("Unexpected byte: 0x");
-				FLY_PRINT((int)input, HEX);
 			}
-
 			FLY_PRINT("> ");
 		}
 	}
@@ -230,10 +194,6 @@ void loop(void *pvParameters)
 			FLY_PRINTLN((char)input);
 
 			switch (input) {
-			case 'a':
-				fly_test();
-
-				break;
 			case ' ':
 				FLY_PRINTLN("spacebar, nice!");
 

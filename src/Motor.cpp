@@ -1,85 +1,240 @@
-#ifdef NOTYET
-#include <assert.h>
 #include "wirish.h"
 #include "Motor.h"
+#include "MapleFreeRTOS.h"
+#include "flymaple_utils.h"
 
-Motor Motor::motor;
-const unsigned char Motor::pin[4] = {D28,D27,D11,D12};
-unsigned short Motor::data[4];
+/********************** Locally Accessible **********************/
 
-Motor::Motor()
+static bool gIsInit = false;
+static bool gIsEnabled = false;
+
+static HardwareTimer timer3(3);
+
+static uint16_t speed[4] = {0, 0, 0, 0};
+
+static uint16_t compare_min = 0;
+static uint16_t compare_max = 0;
+static uint16_t compare_divider = 0;
+
+/********************** Globally Accessible **********************/
+
+void Motor::init()
 {
-	/* pin mode setup related to motor should has to be put here*/
-	pinMode(D28,PWM);
-	pinMode(D27,PWM);
-	pinMode(D11,PWM);
-	pinMode(D12,PWM);
-	Timer3.setPeriod(2080);
-	
-	for(int index = 0 ; index < 4 ; index++)
-		control(index,0);
+	if (gIsInit != true) {
+		// Just in case, re-set speeds to 0
+		speed[0] = 0;
+		speed[1] = 0;
+		speed[2] = 0;
+		speed[3] = 0;
+
+		// Configure pins as PWM
+		pinMode(D12, PWM);
+		pinMode(D11, PWM);
+		pinMode(D27, PWM);
+		pinMode(D28, PWM);
+
+		// Disable counting + output for now
+		timer3.pause();
+		timer3.setCount(0);
+
+		// Set the device to overflow after 20ms
+		timer3.setPeriod(20000);
+
+		// Set the pin mode of each channel to PWM
+		timer3.setMode(TIMER_CH1, TIMER_PWM);
+		timer3.setMode(TIMER_CH2, TIMER_PWM);
+		timer3.setMode(TIMER_CH3, TIMER_PWM);
+		timer3.setMode(TIMER_CH4, TIMER_PWM);
+
+		// Compute how many counts it will take to overflow (at 20ms)
+		uint16_t overflow = timer3.getOverflow();
+
+		// Minimum for PPM control is 1ms, max is 2ms
+		compare_min = overflow / 20;
+		compare_max = overflow / 10;
+
+		// Compute a rough integer divider to convert input values (0 - 10000) to
+		// valid compare values
+		// @TODO - Revisit how much it would hurt performance to make this a float
+		compare_divider = 10000 / (compare_max - compare_min);
+
+		FLY_PRINT("overflow: ");
+		FLY_PRINTLN(overflow);
+
+		FLY_PRINT("compare_min,compare_max: ");
+		FLY_PRINT(compare_min);
+		FLY_PRINT(",");
+		FLY_PRINTLN(compare_max);
+
+		// Motors start at minimum speed (off, hopefully)
+		timer3.setCompare(TIMER_CH1, compare_min);
+		timer3.setCompare(TIMER_CH2, compare_min);
+		timer3.setCompare(TIMER_CH3, compare_min);
+		timer3.setCompare(TIMER_CH4, compare_min);
+
+		// Re-enable the timer
+		timer3.refresh();
+		timer3.resume();
+
+		gIsInit = true;
+	}
 }
 
-Motor::~Motor()
+void Motor::update(uint16_t newspeed[4])
 {
+	if (gIsInit && gIsEnabled) {
+		// If any channels out of range, do nothing
+		for (int i = 0; i < 4; i++) {
+			if (newspeed[i] > 10000) {
+				FLY_PRINT("WARNING! speed value out of range:");
+				FLY_PRINTLN(newspeed[i]);
+				return;
+			}
+		}
+
+		taskENTER_CRITICAL();
+
+		speed[0] = newspeed[0];
+		speed[1] = newspeed[1];
+		speed[2] = newspeed[2];
+		speed[3] = newspeed[3];
+
+		timer3.setCompare(TIMER_CH1, compare_min + (newspeed[0] / compare_divider));
+		timer3.setCompare(TIMER_CH2, compare_min + (newspeed[1] / compare_divider));
+		timer3.setCompare(TIMER_CH3, compare_min + (newspeed[2] / compare_divider));
+		timer3.setCompare(TIMER_CH4, compare_min + (newspeed[3] / compare_divider));
+
+		taskEXIT_CRITICAL();
+	}
 }
 
-void Motor::control(int index,unsigned short level)
+void Motor::update(uint16_t newspeed)
 {
-#ifndef NDEBUG
-	assert(0 <= index && index <= 3);
-	assert(0 <= level && level <= 1000);
-#endif
-	pwmWrite(pin[index],levelToCtrl(level));
+	if (gIsInit && gIsEnabled) {
+		if (newspeed > 10000) {
+			FLY_PRINT("WARNING! speed value out of range:");
+			FLY_PRINTLN(newspeed);
+			return;
+		}
+
+		taskENTER_CRITICAL();
+
+		speed[0] = newspeed;
+		speed[1] = newspeed;
+		speed[2] = newspeed;
+		speed[3] = newspeed;
+
+		uint16_t compare = compare_min + (newspeed / compare_divider);
+
+		timer3.setCompare(TIMER_CH1, compare);
+		timer3.setCompare(TIMER_CH2, compare);
+		timer3.setCompare(TIMER_CH3, compare);
+		timer3.setCompare(TIMER_CH4, compare);
+
+		taskEXIT_CRITICAL();
+	}
 }
 
-void Motor::control1(unsigned short level)
+void Motor::update(uint16_t newspeed, uint8_t channel)
 {
-	motor.control(0,level);
-	data[0] = level;
+	if (channel < 4 && gIsInit && gIsEnabled) {
+		if (newspeed > 10000) {
+			FLY_PRINT("WARNING! speed value out of range:");
+			FLY_PRINTLN(newspeed);
+			return;
+		}
+
+		taskENTER_CRITICAL();
+
+		speed[channel] = newspeed;
+
+		uint16_t compare = compare_min + (newspeed / compare_divider);
+
+		switch (channel) {
+		case 0:
+			timer3.setCompare(TIMER_CH1, compare);
+			break;
+		case 1:
+			timer3.setCompare(TIMER_CH2, compare);
+			break;
+		case 2:
+			timer3.setCompare(TIMER_CH3, compare);
+			break;
+		case 3:
+			timer3.setCompare(TIMER_CH4, compare);
+			break;
+		}
+
+		taskEXIT_CRITICAL();
+	}
 }
 
-void Motor::control2(unsigned short level)
+void Motor::getspeed(uint16_t currentspeed[4])
 {
-	motor.control(1,level);
-	data[1] = level;
+	taskENTER_CRITICAL();
+
+	currentspeed[0] = speed[0];
+	currentspeed[1] = speed[1];
+	currentspeed[2] = speed[2];
+	currentspeed[3] = speed[3];
+
+	taskEXIT_CRITICAL();
 }
 
-void Motor::control3(unsigned short level)
+uint16_t Motor::getspeed(uint8_t channel)
 {
-	motor.control(2,level);
-	data[2] = level;
+	if (channel < 4) {
+		return speed[channel];
+	}
+
+	// Not sure what else to do here
+	return 0;
 }
 
-void Motor::control4(unsigned short level)
+
+void Motor::disable()
 {
-	motor.control(3,level);
-	data[3] = level;
+	taskENTER_CRITICAL();
+
+	gIsEnabled = false;
+
+	stop();
+
+	taskEXIT_CRITICAL();
 }
 
-unsigned short Motor::getLevel1()
+void Motor::enable()
 {
-	return data[0];
+	// Don't do anything if already enabled or not initialized
+	if (gIsInit && !gIsEnabled) {
+		taskENTER_CRITICAL();
+
+		gIsEnabled = true;
+
+		stop();
+
+		taskEXIT_CRITICAL();
+	}
 }
 
-unsigned short Motor::getLevel2()
+void Motor::stop()
 {
-	return data[1];
+	taskENTER_CRITICAL();
+
+	speed[0] = 0;
+	speed[1] = 0;
+	speed[2] = 0;
+	speed[3] = 0;
+
+	// Only set the compare values if initialized
+	if (gIsInit) {
+		timer3.setCompare(TIMER_CH1, compare_min);
+		timer3.setCompare(TIMER_CH2, compare_min);
+		timer3.setCompare(TIMER_CH3, compare_min);
+		timer3.setCompare(TIMER_CH4, compare_min);
+	}
+
+	taskEXIT_CRITICAL();
 }
 
-unsigned short Motor::getLevel3()
-{
-	return data[2];
-}
 
-unsigned short Motor::getLevel4()
-{
-	return data[2];
-}
-
-unsigned short Motor::levelToCtrl(unsigned short level)
-{
-	unsigned short ctrl = (level <= 0)?0:((level >= 1000)?50000:((1000 + level) * 24));
-	return ctrl;
-}
-#endif

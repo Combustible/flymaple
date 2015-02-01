@@ -1,26 +1,58 @@
 #ifndef MOTOR_H
 #define MOTOR_H
 
-#include "Vector.h"
+#define MOTOR_COMPUTE_NEW_SPEED(current, delta) \
+	((((int32_t)current + (int32_t)delta) > 10000) ? 10000 : \
+	 ((int32_t)current + (int32_t)delta) < 0 ? 0 : \
+	 ((uint16_t)((int32_t)current + (int32_t)delta)))
 
-class Motor {
-	static Motor motor;
-	static const unsigned char pin[4];
-	static unsigned short data[4];
-  
-	Motor();
-	void control(int index,unsigned short level);
-	unsigned short levelToCtrl(unsigned short level);
-public:
-	~Motor();
-	static void control1(unsigned short level);
-	static void control2(unsigned short level);
-	static void control3(unsigned short level);
-	static void control4(unsigned short level);
-	static unsigned short getLevel1();
-	static unsigned short getLevel2();
-	static unsigned short getLevel3();
-	static unsigned short getLevel4();
-};
+namespace Motor
+{
+	/**
+	 * Initialize the motor timer subsystem and start sending out minimum speed
+	 */
+	void init();
+
+	/**
+	 * Update all motors at once, valid values 0 - 10000
+	 */
+	void update(uint16_t newspeed[4]);
+
+	/**
+	 * Update all motors at once to the same speed, valid values 0 - 10000. Atomic
+	 */
+	void update(uint16_t newspeed);
+
+	/**
+	 * Update just one motor, valid values 0 - 10000. Atomic
+	 */
+	void update(uint16_t newspeed, uint8_t channel);
+
+	/**
+	 * Read all motors at once, values range from 0 - 10000. Atomic
+	 */
+	void getspeed(uint16_t currentspeed[4]);
+
+	/**
+	 * Read just one motor, values range from 0 - 10000. Atomic
+	 */
+	uint16_t getspeed(uint8_t channel);
+
+	/**
+	 * Disable the motors (send out minimum) until re-enabled. Atomic
+	 */
+	void disable();
+
+	/**
+	 * Re-enable the motors. Automatically sets motor_speed values to 0. Atomic
+	 */
+	void enable();
+
+	/**
+	 * Set motor speed to 0 without disabling the subsystem. Atomic
+	 */
+	void stop();
+}
+
 
 #endif
