@@ -2,15 +2,15 @@
  * @file   Accelerometer.h
  * @author breadbread1984 <breadbread1984@163.com>
  * @date   Sat Jul 21 15:12:00 2012
- * 
+ *
  * Last updated by: Byron Marohn <combustible@live.com>
  *                  August 3, 2014
  *
  * @brief  The namespace for manipulating the accelerometer.
- * 
+ *
  * Caller should call Accelerometer::init() before otherwise accessing accelerometer routines.
  *
- * @copyright GPLv3 
+ * @copyright GPLv3
  */
 
 #include "Error.h"
@@ -23,9 +23,9 @@
 #define ACCEL_I2C_ADDR                      (0x53)
 
 #define ACCEL_REG_DEVID                     (0x00)
-#define ACCEL_REG_OFSX                      (0x1D)
-#define ACCEL_REG_OFSY                      (0x1E)
-#define ACCEL_REG_OFSZ                      (0x1F)
+#define ACCEL_REG_OFSX                      (0x1E)
+#define ACCEL_REG_OFSY                      (0x1F)
+#define ACCEL_REG_OFSZ                      (0x20)
 #define ACCEL_REG_BW_RATE                   (0x2C)
 #define ACCEL_REG_POWER_CTL                 (0x2D)
 #define ACCEL_REG_DATA_FORMAT               (0x31)
@@ -70,7 +70,7 @@ namespace Accelerometer
 	extern int16_t y;
 	extern int16_t z;
 
-	extern int16_t gravity_magnitude;
+	extern double gravity_magnitude;
 
 	/**
 	 * Initialize Accelerometer subsystem if not done already

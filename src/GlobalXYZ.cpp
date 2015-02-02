@@ -8,7 +8,6 @@
 #include "flymaple_utils.h"
 
 using namespace Sensor;
-using namespace GlobalXYZ;
 
 /********************** Locally Accessible **********************/
 
@@ -26,9 +25,9 @@ static inline void update_up_vector(void)
 	// Need to get all the sensor data at once
 	taskENTER_CRITICAL();
 
-	new_up[0] = up[0];
-	new_up[1] = up[1];
-	new_up[2] = up[2];
+	new_up[0] = GlobalXYZ::up[0];
+	new_up[1] = GlobalXYZ::up[1];
+	new_up[2] = GlobalXYZ::up[2];
 
 	accel_x = (double)Accelerometer::x;
 	accel_y = (double)Accelerometer::y;
@@ -39,7 +38,7 @@ static inline void update_up_vector(void)
 	taskEXIT_CRITICAL();
 
 	// Normalize accelerometer vector
-	magnitude = sqrt(accel_x*accel_x + accel_y*accel_y + accel_z*accel_z);
+	magnitude = sqrt(accel_x * accel_x + accel_y * accel_y + accel_z * accel_z);
 	accel_x /= magnitude;
 	accel_y /= magnitude;
 	accel_z /= magnitude;
@@ -53,7 +52,7 @@ static inline void update_up_vector(void)
 	temp_up[0] = new_up[0] * cos(gyro_y) + new_up[2] * sin(gyro_y);
 	temp_up[1] = new_up[1];
 	temp_up[2] = -new_up[0] * sin(gyro_y) + new_up[2] * cos(gyro_y);
-	for(int i = 0; i < 3; i++) new_up[i] = temp_up[i];
+	for (int i = 0; i < 3; i++) new_up[i] = temp_up[i];
 #endif
 
 	/*
@@ -70,7 +69,7 @@ static inline void update_up_vector(void)
 	temp_up[0] = new_up[0] * cosy + new_up[1] * sinx * siny + new_up[2] * siny * cosx;
 	temp_up[1] = new_up[1] * cosx - new_up[2] * sinx;
 	temp_up[2] = -new_up[0] * siny + new_up[1] * cosy * sinx + new_up[2] * cosx * cosy;
-	for(int i = 0; i < 3; i++) new_up[i] = temp_up[i];
+	for (int i = 0; i < 3; i++) new_up[i] = temp_up[i];
 
 
 	/*
@@ -82,8 +81,8 @@ static inline void update_up_vector(void)
 	new_up[2] = (GYRO_TO_ACCEL_WEIGHT_RATIO * new_up[2] + accel_z) / (GYRO_TO_ACCEL_WEIGHT_RATIO + 1);
 
 	// Floating point math isn't perfect, so every few runs re-normalize the vector
-	if(loopcount > 5) {
-		magnitude = sqrt(new_up[0]*new_up[0] + new_up[1]*new_up[1] + new_up[2]*new_up[2]);
+	if (loopcount > 5) {
+		magnitude = sqrt(new_up[0] * new_up[0] + new_up[1] * new_up[1] + new_up[2] * new_up[2]);
 		accel_x /= magnitude;
 		accel_y /= magnitude;
 		accel_z /= magnitude;
@@ -94,28 +93,111 @@ static inline void update_up_vector(void)
 	// Update the globally accessible values
 	taskENTER_CRITICAL();
 
-	up[0] = new_up[0];
-	up[1] = new_up[1];
-	up[2] = new_up[2];
+	GlobalXYZ::up[0] = new_up[0];
+	GlobalXYZ::up[1] = new_up[1];
+	GlobalXYZ::up[2] = new_up[2];
 
 	taskEXIT_CRITICAL();
 
 	loopcount ++;
 }
 
+static void update_height(void)
+{
+	double accel[3];
+	double up_ref[3];
+	double gravity_accel;
+	double mag_accel;
+
+	double vert_accel;
+	double accel_proj;
+
+	const double gravity = 9.8;
+
+	// Last time this function was called
+	static portTickType last_time = xTaskGetTickCount();
+
+	// Last vertical velocity
+	static double last_vel = 0;
+
+	double delta_t;
+
+	// Current time
+	portTickType cur_time = xTaskGetTickCount();
+
+	// Need to  get all the sensor data at once
+	taskENTER_CRITICAL();
+
+	accel[0] = Accelerometer::x;
+	accel[1] = Accelerometer::y;
+	accel[2] = Accelerometer::z;
+	gravity_accel = Accelerometer::gravity_magnitude;
+
+	up_ref[0] = GlobalXYZ::up[0];
+	up_ref[1] = GlobalXYZ::up[1];
+	up_ref[2] = GlobalXYZ::up[2];
+
+	taskEXIT_CRITICAL();
+
+	mag_accel = sqrt(accel[0] * accel[0] + accel[1] * accel[1] + accel[2] * accel[2]);
+	accel[0] /= mag_accel;
+	accel[1] /= mag_accel;
+	accel[2] /= mag_accel;
+
+	// Compute the vector projection of acceleration onto the up vector
+	accel_proj = (accel[0] * up_ref[0] +
+	              accel[1] * up_ref[1] +
+	              accel[2] * up_ref[2]);
+
+	// Then multiply that factor by the magnitude of the acceleration relative to gravity
+	//              Subtract 1 to center at zero, and multiply by gravity to get meters per second per second
+	vert_accel = ((accel_proj * (mag_accel / gravity_accel)) - 1.0) * gravity;
+
+	// Time difference in seconds
+	delta_t = ((double)(cur_time - last_time)) / (portTICK_RATE_MS * 1000.0);
+
+	// Last velocity is a factor of itself plus the change due to acceleration
+	// The 0.97 term pushes this towards 0 so it doesn't wander up or down too far
+	last_vel = 0.97 * (last_vel + (vert_accel * delta_t));
+
+#if 0
+	FLY_PRINT("Delta_t:");
+	FLY_PRINTLN(delta_t);
+	FLY_PRINT("mag_accel:");
+	FLY_PRINTLN(mag_accel, 5);
+	FLY_PRINT("accel_proj:");
+	FLY_PRINTLN(accel_proj, 5);
+	FLY_PRINT("vert_accel:");
+	FLY_PRINTLN(vert_accel, 5);
+	FLY_PRINT("last_vel:");
+	FLY_PRINTLN(last_vel, 5);
+#endif
+
+	// Updated relative height is the average of:
+	//      (previous height + component from velocity) - Weighted 30x
+	//  (height from pressure sensor) - Weighted 1x
+#if ACCELEROMETER_ONLY_HEIGHT_ESTIMATION
+	GlobalXYZ::rel_height = ((GlobalXYZ::rel_height + (last_vel * delta_t))) ;
+#else
+	GlobalXYZ::rel_height = ((GlobalXYZ::rel_height + (last_vel * delta_t)) * 30.0 +
+	                         (Pressure::computeAltitude() - Pressure::initial_altitude)) / 31.0  ;
+#endif
+
+	last_time = cur_time;
+}
+
 
 /********************** Globally Accessible **********************/
 
 double GlobalXYZ::up[3] = {0, 0, 1};
-double GlobalXYZ::rel_height;
+double GlobalXYZ::rel_height = 0;
 double GlobalXYZ::orientation[2];
 
 void GlobalXYZ::update()
 {
 	update_up_vector();
+	update_height();
 }
-
-
 
 
 
@@ -302,7 +384,7 @@ Vector<double> GlobalXYZ::getQuaternion()
 			quaternion(3) = 0.25 * s;
 		}
 	}
-	
+
 	return quaternion;
 }
 

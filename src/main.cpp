@@ -105,6 +105,9 @@ void print_loop(void *pvParameters)
 			FLY_PRINT("Alt : ");
 			FLY_PRINTLN(Pressure::computeAltitude(), 5);
 
+			FLY_PRINT("Rel : ");
+			FLY_PRINTLN(GlobalXYZ::rel_height);
+
 			FLY_PRINT("Acc X:");
 			FLY_PRINTLN(Accelerometer::x);
 			FLY_PRINT("Acc Y:");

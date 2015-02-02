@@ -10,7 +10,7 @@ using namespace Sensor;
 static bool gIsInit = false;
 
 // Device-specific calibration information
-static const uint8_t ofs[3] = {0, 0, 0};
+static const int8_t ofs[3] = {0, -1, 12};
 
 static inline void getRawReading(int16_t *new_x, int16_t *new_y, int16_t *new_z)
 {
@@ -35,7 +35,7 @@ short Accelerometer::offset[3] = {0, 0, 0};
 int16_t Accelerometer::x;
 int16_t Accelerometer::y;
 int16_t Accelerometer::z;
-int16_t Accelerometer::gravity_magnitude;
+double Accelerometer::gravity_magnitude;
 
 status Accelerometer::init()
 {

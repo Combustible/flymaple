@@ -71,6 +71,7 @@ static inline void getRawReading(int32_t *new_ut, int32_t *new_up)
 // Default to 25 degrees C, sea level
 int32_t Pressure::temperature = 250;
 int32_t Pressure::pressure = PRESSURE_AT_SEALEVEL_IN_PA;
+double Pressure::initial_altitude = 0;
 
 status Pressure::init()
 {
@@ -96,15 +97,36 @@ status Pressure::init()
 		mc = BIG_ENDIAN_INT16_FROM_PTR(&buffer[18]);
 		md = BIG_ENDIAN_INT16_FROM_PTR(&buffer[20]);
 
-		// Wait 100 milliseconds
-		vTaskDelay(100 / portTICK_RATE_MS);
+		// Wait 1 second
+		vTaskDelay(1000 / portTICK_RATE_MS);
 
 		// Get the first reading
 		ret = getReading();
 		if (ret) {
-			FLY_PRINT_ERR("ERROR: Compass failure! First read returned error");
+			FLY_PRINT_ERR("ERROR: Barometer failure! First read returned error");
 			return ret;
 		}
+		vTaskDelay(100 / portTICK_RATE_MS);
+
+		// Sample many readings over 1 second and average them to get starting altitude
+		{
+			int32_t accumulator = 0;
+			for (int i = 0 ; i < 20 ; i++) {
+				// Get the first reading
+				ret = getReading();
+				if (ret) {
+					FLY_PRINT_ERR("ERROR: Barometer failure! A calibration read returned error");
+					return ret;
+				}
+
+				accumulator += pressure;
+				vTaskDelay(50 / portTICK_RATE_MS);
+			}
+			pressure = accumulator / 20;
+			initial_altitude = computeAltitude();
+		}
+
+		gIsInit = true;
 	}
 
 	return FLYMAPLE_SUCCESS;
@@ -187,7 +209,7 @@ status Pressure::getReading()
 	return FLYMAPLE_SUCCESS;
 }
 
-float Pressure::computeAltitude()
+double Pressure::computeAltitude()
 {
-	return (44330 * (1 - pow(((float)pressure / (float)PRESSURE_AT_SEALEVEL_IN_PA), 1.0 / 5.255)));
+	return (44330.0 * (1.0 - pow(((double)pressure / (double)PRESSURE_AT_SEALEVEL_IN_PA), 1.0 / 5.255)));
 }

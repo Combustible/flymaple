@@ -38,8 +38,12 @@ namespace Pressure
 
 	/** Temperature in .1 degree C */
 	extern int32_t temperature;
+
 	/** Pressure in Pa */
 	extern int32_t pressure;
+
+	/** Altitude at power-on */
+	extern double initial_altitude;
 
 	/**
 	 * Initialize Pressure subsystem if not done already
@@ -56,7 +60,7 @@ namespace Pressure
 	 * Floating point operating to compute the absolute altitude from the previously obtained
 	 * pressure measurement.
 	 */
-	float computeAltitude();
+	double computeAltitude();
 
 };
 
