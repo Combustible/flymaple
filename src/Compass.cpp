@@ -50,14 +50,14 @@ status Compass::init()
 		// Wait 100 milliseconds
 		vTaskDelay(100 / portTICK_RATE_MS);
 
+		gIsInit = true;
+
 		// Get the first reading
 		ret = getReading();
 		if (ret) {
 			FLY_PRINT_ERR("ERROR: Compass failure! First read returned error");
 			return ret;
 		}
-
-		gIsInit = true;
 	}
 
 	return FLYMAPLE_SUCCESS;
@@ -70,6 +70,8 @@ status Compass::getReading()
 	double magnitude;
 	static bool last_read_fail = false;
 	static uint8_t read_fail_count = 0;
+
+	if (! gIsInit) return FLYMAPLE_SUBSYS_NOT_INITIALIZED;
 
 	getRawReading(&tmpx, &tmpy, &tmpz);
 

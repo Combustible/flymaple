@@ -15,10 +15,6 @@
 #include "Vector.h"
 #include "Sensor.h"
 
-// If you change this, you probably also have to change the sampling rate of the sensors
-#define UPDATE_INTERVAL 	50
-#define UPDATE_FREQ_IN_HZ 	(1000/UPDATE_INTERVAL)
-
 #define GYRO_TO_ACCEL_WEIGHT_RATIO 	6.0
 
 namespace GlobalXYZ

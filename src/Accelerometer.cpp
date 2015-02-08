@@ -58,7 +58,7 @@ status Accelerometer::init()
 		write(ACCEL_I2C_ADDR, ACCEL_REG_OFSZ, ofs[2]);
 
 		// Set sample rate
-		write(ACCEL_I2C_ADDR, ACCEL_REG_BW_RATE, ACCEL_BW_RATE_25HZ);
+		write(ACCEL_I2C_ADDR, ACCEL_REG_BW_RATE, ACCEL_BW_RATE_50HZ);
 
 		// Set data format
 		write(ACCEL_I2C_ADDR,
@@ -104,14 +104,14 @@ status Accelerometer::init()
 #endif
 		}
 
+		gIsInit = true;
+
 		// Get the first reading
 		ret = getReading();
 		if (ret) {
 			FLY_PRINT_ERR("ERROR: Accelerometer failure! First read returned error");
 			return ret;
 		}
-
-		gIsInit = true;
 	}
 
 	return FLYMAPLE_SUCCESS;
@@ -121,6 +121,8 @@ status Accelerometer::getReading()
 {
 	int16_t tmpx = -32760, tmpy = -32760, tmpz = -32760;
 	static uint8_t read_fail_count = 0;
+
+	if (! gIsInit) return FLYMAPLE_SUBSYS_NOT_INITIALIZED;
 
 	getRawReading(&tmpx, &tmpy, &tmpz);
 

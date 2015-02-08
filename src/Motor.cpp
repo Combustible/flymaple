@@ -135,7 +135,7 @@ void Motor::update(uint16_t newspeed)
 	}
 }
 
-void Motor::update(uint16_t newspeed, uint8_t channel)
+void Motor::update(uint16_t newspeed, enum flymaple_motor_channel channel)
 {
 	if (channel < 4 && gIsInit && gIsEnabled) {
 		if (newspeed > 10000) {
@@ -181,7 +181,7 @@ void Motor::getspeed(uint16_t currentspeed[4])
 	taskEXIT_CRITICAL();
 }
 
-uint16_t Motor::getspeed(uint8_t channel)
+uint16_t Motor::getspeed(enum flymaple_motor_channel channel)
 {
 	if (channel < 4) {
 		return speed[channel];

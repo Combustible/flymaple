@@ -10,7 +10,7 @@ using namespace Sensor;
 static bool gIsInit = false;
 
 /** BMP085 Pressure over sampling setting; 0-3 */
-static const uint8_t OSS = 2;
+static const uint8_t OSS = 3;
 
 /** Datasheet specified delay after initiating a pressure measurement, in milliseconds */
 static const uint8_t OSS_SAMPLE_DELAY_IN_MS[4] = {5, 8, 14, 26};
@@ -66,11 +66,17 @@ static inline void getRawReading(int32_t *new_ut, int32_t *new_up)
 	           (((int32_t)buffer[2]))) >> (8 - OSS);
 }
 
+static inline double computeAltitude(int32_t pressure)
+{
+	return (44330.0 * (1.0 - pow(((double)pressure / (double)PRESSURE_AT_SEALEVEL_IN_PA), 1.0 / 5.255)));
+}
+
 /********************** Globally Accessible **********************/
 
 // Default to 25 degrees C, sea level
 int32_t Pressure::temperature = 250;
 int32_t Pressure::pressure = PRESSURE_AT_SEALEVEL_IN_PA;
+double Pressure::altitude = 0;
 double Pressure::initial_altitude = 0;
 
 status Pressure::init()
@@ -100,6 +106,8 @@ status Pressure::init()
 		// Wait 1 second
 		vTaskDelay(1000 / portTICK_RATE_MS);
 
+		gIsInit = true;
+
 		// Get the first reading
 		ret = getReading();
 		if (ret) {
@@ -123,10 +131,8 @@ status Pressure::init()
 				vTaskDelay(50 / portTICK_RATE_MS);
 			}
 			pressure = accumulator / 20;
-			initial_altitude = computeAltitude();
+			initial_altitude = computeAltitude(pressure);
 		}
-
-		gIsInit = true;
 	}
 
 	return FLYMAPLE_SUCCESS;
@@ -138,6 +144,8 @@ status Pressure::getReading()
 	uint32_t b4, b7;
 
 	static uint8_t read_fail_count = 0; /*!< Number of failed sequential measurements */
+
+	if (! gIsInit) return FLYMAPLE_SUBSYS_NOT_INITIALIZED;
 
 	getRawReading(&ut, &up);
 
@@ -196,20 +204,23 @@ status Pressure::getReading()
 		return FLYMAPLE_WARN_PRESSURE_READ_FAIL;
 	}
 
+	// Compute the altitude outside the critical section because it takes more time than assignment
+	volatile double temp_altitude = computeAltitude(p);
+
 	/*
 	 * Update the global values
 	 *
-	 * Probably no need for a lock, since temperature and pressure values out of sync
-	 *    are not likely to crash the drone
+	 * Need to do this in a critical section, just in case control transfers in the middle
+	 * leaving one or two components updated and the others stale.
 	 */
+	taskENTER_CRITICAL();
 	temperature = t;
 	pressure = p;
+	altitude = temp_altitude;
+	taskEXIT_CRITICAL();
+
 
 	read_fail_count = 0;
 	return FLYMAPLE_SUCCESS;
 }
 
-double Pressure::computeAltitude()
-{
-	return (44330.0 * (1.0 - pow(((double)pressure / (double)PRESSURE_AT_SEALEVEL_IN_PA), 1.0 / 5.255)));
-}

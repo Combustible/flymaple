@@ -1,6 +1,7 @@
 #include "i2c.h"
 #include "wirish.h"
 #include "Sensor.h"
+#include "MapleFreeRTOS.h"
 
 /********************** Locally Accessible **********************/
 
@@ -22,6 +23,8 @@ void Sensor::read(unsigned char dev_addr, unsigned char read_addr,
 #ifndef NDEBUG
 	ASSERT(buffer);
 #endif
+	taskENTER_CRITICAL();
+
 	//把要读的地址写入设备
 	buffer[0] = read_addr;
 	i2c_msg msgs[1];
@@ -36,15 +39,22 @@ void Sensor::read(unsigned char dev_addr, unsigned char read_addr,
 	msgs[0].length = read_length;
 	msgs[0].data = buffer;
 	i2c_master_xfer(I2C1, msgs, 1, 0);
+
+	taskEXIT_CRITICAL();
 }
 
 void Sensor::write(unsigned char dev_addr, unsigned char write_addr, unsigned char value)
 {
 	unsigned char buffer[] = {write_addr, value};
+
+	taskENTER_CRITICAL();
+
 	i2c_msg msgs[1];
 	msgs[0].addr = dev_addr;
 	msgs[0].flags = 0;
 	msgs[0].length = 2;
 	msgs[0].data = buffer;
 	i2c_master_xfer(I2C1, msgs, 1, 0);
+
+	taskEXIT_CRITICAL();
 }

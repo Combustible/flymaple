@@ -51,9 +51,9 @@ status Gyroscope::init()
 		// Set sample rate
 		write(GYRO_I2C_ADDR, GYRO_REG_DLPF_FS, GYRO_DLPF_FS_SEL_2000DEG | GYRO_DLPF_CFG_BW_20HZ);
 
-		// Set the sample rate divider to update the registers at approximately 30 Hz
-		// 1kHz / (33 + 1) = 29.411
-		write(GYRO_I2C_ADDR, GYRO_REG_SMPLRT_DIV, 33);
+		// Set the sample rate divider to update the registers at approximately 100 Hz
+		// 1kHz / (9 + 1) = 100
+		write(GYRO_I2C_ADDR, GYRO_REG_SMPLRT_DIV, 9);
 
 		// Interrupts are not used
 		write(GYRO_I2C_ADDR, GYRO_REG_INT_CFG, 0x00);
@@ -82,15 +82,14 @@ status Gyroscope::init()
 			ofs[2] += acc_z / 10;
 		}
 
+		gIsInit = true;
+
 		// Get the first reading
 		ret = getReading();
 		if (ret) {
 			FLY_PRINT_ERR("ERROR: Gyroscope failure! First read returned error");
 			return ret;
 		}
-
-
-		gIsInit = true;
 	}
 
 	return FLYMAPLE_SUCCESS;
@@ -100,6 +99,8 @@ status Gyroscope::getReading()
 {
 	int16_t tmpx = -32760, tmpy = -32760, tmpz = -32760;
 	static uint8_t read_fail_count = 0;
+
+	if (! gIsInit) return FLYMAPLE_SUBSYS_NOT_INITIALIZED;
 
 	getRawReading(&tmpx, &tmpy, &tmpz);
 
@@ -140,13 +141,19 @@ status Gyroscope::getReading()
 
 void Gyroscope::computeRadians(double *rad_x, double *rad_y, double *rad_z)
 {
+	int16_t tempx, tempy, tempz;
+
 	/*
-	 * Need to do this in a critical section, just in case control transfers in the middle
-	 * leaving one or two components updated and the others stale.
+	 * Need to get values in a critical section, just in case control transfers in the
+	 * middle leaving one or two components updated and the others stale.
 	 */
 	taskENTER_CRITICAL();
-	*rad_x = ((double)x / GYRO_SENSITIVITY) * (PI / 180.0);
-	*rad_y = ((double)y / GYRO_SENSITIVITY) * (PI / 180.0);
-	*rad_z = ((double)z / GYRO_SENSITIVITY) * (PI / 180.0);
+	tempx = x;
+	tempy = y;
+	tempz = z;
 	taskEXIT_CRITICAL();
+
+	*rad_x = ((double)tempx / GYRO_SENSITIVITY) * (PI / 180.0);
+	*rad_y = ((double)tempy / GYRO_SENSITIVITY) * (PI / 180.0);
+	*rad_z = ((double)tempz / GYRO_SENSITIVITY) * (PI / 180.0);
 }

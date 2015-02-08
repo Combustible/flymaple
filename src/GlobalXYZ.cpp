@@ -21,6 +21,13 @@ static inline void update_up_vector(void)
 
 	static int loopcount = 0;
 
+	// Last time this function was called
+	static portTickType last_time = xTaskGetTickCount();
+
+	// Current time
+	portTickType cur_time = xTaskGetTickCount();
+
+	double update_freq_in_hz = (portTICK_RATE_MS * 1000.0) / ((double)(cur_time - last_time));
 
 	// Need to get all the sensor data at once
 	taskENTER_CRITICAL();
@@ -44,9 +51,9 @@ static inline void update_up_vector(void)
 	accel_z /= magnitude;
 
 	// Reduce radians per second to radians per tick, and update sign to match accelerometer
-	gyro_x /= UPDATE_FREQ_IN_HZ * (-1);
-	gyro_y /= UPDATE_FREQ_IN_HZ * (-1);
-	gyro_z /= UPDATE_FREQ_IN_HZ;
+	gyro_x /= update_freq_in_hz * (-1);
+	gyro_y /= update_freq_in_hz * (-1);
+	gyro_z /= update_freq_in_hz;
 
 #ifdef ROTATION_2D_TEST_OLD
 	temp_up[0] = new_up[0] * cos(gyro_y) + new_up[2] * sin(gyro_y);
@@ -100,6 +107,7 @@ static inline void update_up_vector(void)
 	taskEXIT_CRITICAL();
 
 	loopcount ++;
+	last_time = cur_time;
 }
 
 static void update_height(void)
@@ -125,7 +133,7 @@ static void update_height(void)
 	// Current time
 	portTickType cur_time = xTaskGetTickCount();
 
-	// Need to  get all the sensor data at once
+	// Need to get all the sensor data at once
 	taskENTER_CRITICAL();
 
 	accel[0] = Accelerometer::x;
@@ -157,8 +165,8 @@ static void update_height(void)
 	delta_t = ((double)(cur_time - last_time)) / (portTICK_RATE_MS * 1000.0);
 
 	// Last velocity is a factor of itself plus the change due to acceleration
-	// The 0.97 term pushes this towards 0 so it doesn't wander up or down too far
-	last_vel = 0.97 * (last_vel + (vert_accel * delta_t));
+	// The 0.98 term pushes this towards 0 so it doesn't wander up or down too far
+	last_vel = 0.98 * (last_vel + (vert_accel * delta_t));
 
 #if 0
 	FLY_PRINT("Delta_t:");
@@ -174,13 +182,13 @@ static void update_height(void)
 #endif
 
 	// Updated relative height is the average of:
-	//      (previous height + component from velocity) - Weighted 30x
+	//      (previous height + component from velocity) - Weighted 300x
 	//  (height from pressure sensor) - Weighted 1x
 #if ACCELEROMETER_ONLY_HEIGHT_ESTIMATION
 	GlobalXYZ::rel_height = ((GlobalXYZ::rel_height + (last_vel * delta_t))) ;
 #else
-	GlobalXYZ::rel_height = ((GlobalXYZ::rel_height + (last_vel * delta_t)) * 30.0 +
-	                         (Pressure::computeAltitude() - Pressure::initial_altitude)) / 31.0  ;
+	GlobalXYZ::rel_height = ((GlobalXYZ::rel_height + (last_vel * delta_t)) * 300.0 +
+	                         (Pressure::altitude - Pressure::initial_altitude)) / 301.0  ;
 #endif
 
 	last_time = cur_time;

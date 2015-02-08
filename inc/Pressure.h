@@ -42,6 +42,9 @@ namespace Pressure
 	/** Pressure in Pa */
 	extern int32_t pressure;
 
+	/** Current altitude in meters */
+	extern double altitude;
+
 	/** Altitude at power-on */
 	extern double initial_altitude;
 
@@ -55,13 +58,6 @@ namespace Pressure
 	 * values 'temperature' and 'pressure', respectively.
 	 */
 	status getReading();
-
-	/**
-	 * Floating point operating to compute the absolute altitude from the previously obtained
-	 * pressure measurement.
-	 */
-	double computeAltitude();
-
 };
 
 

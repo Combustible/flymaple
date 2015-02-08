@@ -6,6 +6,13 @@
 	 ((int32_t)current + (int32_t)delta) < 0 ? 0 : \
 	 ((uint16_t)((int32_t)current + (int32_t)delta)))
 
+enum flymaple_motor_channel {
+	FLYMAPLE_MOTOR_0 = 0,
+	FLYMAPLE_MOTOR_1 = 1,
+	FLYMAPLE_MOTOR_2 = 2,
+	FLYMAPLE_MOTOR_3 = 3
+};
+
 namespace Motor
 {
 	/**
@@ -26,7 +33,7 @@ namespace Motor
 	/**
 	 * Update just one motor, valid values 0 - 10000. Atomic
 	 */
-	void update(uint16_t newspeed, uint8_t channel);
+	void update(uint16_t newspeed, enum flymaple_motor_channel channel);
 
 	/**
 	 * Read all motors at once, values range from 0 - 10000. Atomic
@@ -36,7 +43,7 @@ namespace Motor
 	/**
 	 * Read just one motor, values range from 0 - 10000. Atomic
 	 */
-	uint16_t getspeed(uint8_t channel);
+	uint16_t getspeed(enum flymaple_motor_channel channel);
 
 	/**
 	 * Disable the motors (send out minimum) until re-enabled. Atomic
