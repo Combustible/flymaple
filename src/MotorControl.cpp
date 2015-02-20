@@ -8,7 +8,11 @@
 /********************** Locally Accessible **********************/
 
 #define MOTOR_CONTROL_LEVEL_MAX_DIFF 500
+#define MOTOR_CONTROL_MIN_BASE_SPEED 2600
+#define MOTOR_CONTROL_MAX_BASE_SPEED 3700
 
+static double target_height = 0;
+static bool target_height_set = false;
 static int16_t base_speed = 0;
 static double kp = 60, ki = 30, kd = 60;
 
@@ -99,8 +103,45 @@ void update_level_flight()
 	last_time = cur_time;
 }
 
+void update_height_base_speed(void)
+{
+	if(target_height_set == true) {
+		taskENTER_CRITICAL();
+
+		if (GlobalXYZ::rel_height > target_height) {
+			base_speed --;
+			if (base_speed < MOTOR_CONTROL_MIN_BASE_SPEED) {
+				base_speed = MOTOR_CONTROL_MIN_BASE_SPEED;
+			}
+		} else {
+			base_speed ++;
+			if (base_speed > MOTOR_CONTROL_MAX_BASE_SPEED) {
+				base_speed = MOTOR_CONTROL_MAX_BASE_SPEED;
+			}
+		}
+
+		taskEXIT_CRITICAL();
+	}
+}
+
 /********************** Globally Accessible **********************/
 
+
+void MotorControl::setheight(double target_height)
+{
+	target_height = target_height;
+	target_height_set = true;
+}
+
+bool MotorControl::is_height_set(void)
+{
+	return target_height_set;
+}
+
+void MotorControl::unset_height(void)
+{
+	target_height_set = false;
+}
 
 void MotorControl::setspeed(int16_t speed)
 {
@@ -115,7 +156,7 @@ int16_t MotorControl::getspeed()
 void MotorControl::update()
 {
 
-	// Update base speed here, height PID
+	update_height_base_speed();
 	update_level_flight();
 
 }

@@ -12,10 +12,13 @@
 
 namespace MotorControl
 {
+	void setheight(double target_height);
+	void unset_height(void);
 	void setspeed(int16_t speed);
-	int16_t getspeed();
+	int16_t getspeed(void);
+	bool is_height_set(void);
 
-	void update();
+	void update(void);
 
 };
 

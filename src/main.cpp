@@ -103,124 +103,43 @@ void sensor_loop(void *pvParameters)
 	}
 }
 
-void print_loop(void *pvParameters)
+int32_t ticks_to_stop = 0;
+
+static inline void do_user_input(void)
 {
-	portTickType xLastWakeTime;
-	const portTickType xFrequency = 200;
+	if (SerialUSB.available()) {
+		uint8 input = SerialUSB.read();
+		FLY_PRINTLN((char)input);
 
-	// Wait a bit so any initialization messages can be read
-	vTaskDelay(5000 / portTICK_RATE_MS);
+		switch (input) {
+		case 'i':
+			FLY_PRINTLN("Initializing motors");
+			Motor::init();
 
-	xLastWakeTime = xTaskGetTickCount();
+			break;
+		case 'e':
+			FLY_PRINTLN("Enabling motors");
+			Motor::enable();
 
-	while (1) {
-		// Wait for the next cycle.
-		vTaskDelayUntil(&xLastWakeTime, xFrequency);
+			break;
+		case 'd':
+			FLY_PRINTLN("Disabling motors");
+			Motor::disable();
 
-		if (!global_error) {
-			CLEAR_SCREEN();
-
-			// Print data
-			FLY_PRINT("Ticks:(");
-			FLY_PRINT(slow_ticks);
-			FLY_PRINT(",");
-			FLY_PRINT(fast_ticks);
-			FLY_PRINTLN(")");
-			slow_ticks = 0;
-			fast_ticks = 0;
-
-			FLY_PRINT("Comp X: ");
-			FLY_PRINTLN(Compass::x, 4);
-			FLY_PRINT("Comp Y: ");
-			FLY_PRINTLN(Compass::y, 4);
-			FLY_PRINT("Comp Z: ");
-			FLY_PRINTLN(Compass::z, 4);
-
-			FLY_PRINT("Temp: ");
-			FLY_PRINTLN(Pressure::temperature);
-			FLY_PRINT("Pres: ");
-			FLY_PRINTLN(Pressure::pressure);
-			FLY_PRINT("Alt : ");
-			FLY_PRINTLN(Pressure::altitude, 4);
-
-			FLY_PRINT("Rel : ");
-			FLY_PRINTLN(GlobalXYZ::rel_height, 4);
-
-			FLY_PRINT("Acc X:");
-			FLY_PRINTLN(Accelerometer::x);
-			FLY_PRINT("Acc Y:");
-			FLY_PRINTLN(Accelerometer::y);
-			FLY_PRINT("Acc Z:");
-			FLY_PRINTLN(Accelerometer::z);
-
-			FLY_PRINT("Gyr X:");
-			FLY_PRINTLN(Gyroscope::x);
-			FLY_PRINT("Gyr Y:");
-			FLY_PRINTLN(Gyroscope::y);
-			FLY_PRINT("Gyr Z:");
-			FLY_PRINTLN(Gyroscope::z);
-
-			FLY_PRINT("Up X:");
-			FLY_PRINTLN(GlobalXYZ::up[0], 4);
-			FLY_PRINT("Up Y:");
-			FLY_PRINTLN(GlobalXYZ::up[1], 4);
-			FLY_PRINT("Up Z:");
-			FLY_PRINTLN(GlobalXYZ::up[2], 4);
-
-			uint16_t motorspeed[4];
-			Motor::getspeed(motorspeed);
-			FLY_PRINT("Spd 0:");
-			FLY_PRINTLN(motorspeed[0]);
-			FLY_PRINT("Spd 1:");
-			FLY_PRINTLN(motorspeed[1]);
-			FLY_PRINT("Spd 2:");
-			FLY_PRINTLN(motorspeed[2]);
-			FLY_PRINT("Spd 3:");
-			FLY_PRINTLN(motorspeed[3]);
-			FLY_PRINT("basespeed:");
-			FLY_PRINTLN(MotorControl::getspeed());
-
-			FLY_PRINTLN();
-			FLY_PRINTLN("Commands: i e d a ; ' '");
-
-			/* Notes:
-			 *
-			 * Takeoff @ around 3300
-			 * Safe landing maybe 2900
-			 *
-			 */
-
-
-
-			if (SerialUSB.available()) {
-				uint8 input = SerialUSB.read();
-				FLY_PRINTLN((char)input);
-
-				switch (input) {
-				case 'i':
-					FLY_PRINTLN("Initializing motors");
-					Motor::init();
-
-					break;
-				case 'e':
-					FLY_PRINTLN("Enabling motors");
-					Motor::enable();
-
-					break;
-				case 'd':
-					FLY_PRINTLN("Disabling motors");
-					Motor::disable();
-
-					break;
-				case 'a':
+			break;
+		case 'a':
 //					Motor::update(MOTOR_COMPUTE_NEW_SPEED(motorspeed[0], 100));
-					MotorControl::setspeed(MOTOR_COMPUTE_NEW_SPEED(MotorControl::getspeed(), 100));
-					break;
-				case ';':
+			MotorControl::setspeed(MOTOR_COMPUTE_NEW_SPEED(MotorControl::getspeed(), 100));
+			break;
+		case ';':
 //					Motor::update(MOTOR_COMPUTE_NEW_SPEED(motorspeed[0], -100));
-					MotorControl::setspeed(MOTOR_COMPUTE_NEW_SPEED(MotorControl::getspeed(), -100));
-
-					break;
+			MotorControl::setspeed(MOTOR_COMPUTE_NEW_SPEED(MotorControl::getspeed(), -100));
+		case '1':
+			MotorControl::setheight(2.0);
+			break;
+		case '0':
+			MotorControl::setheight(-5.0);
+			break;
 //				case '1':
 //					Motor::update(500, FLYMAPLE_MOTOR_0);
 //
@@ -237,20 +156,118 @@ void print_loop(void *pvParameters)
 //					Motor::update(500, FLYMAPLE_MOTOR_3);
 //
 //					break;
-				case ' ':
-					FLY_PRINTLN("Stopping motors");
+		case ' ':
+			FLY_PRINTLN("Stopping motors");
 
-					Motor::disable();
+			MotorControl::unset_height();
 
-					break;
-				default: // -------------------------------
-					FLY_PRINT("Unexpected byte: 0x");
-					FLY_PRINT((int)input, HEX);
-				}
+			Motor::disable();
 
-			}
-			FLY_PRINT("> ");
+			break;
+		default: // -------------------------------
+			FLY_PRINT("Unexpected byte: 0x");
+			FLY_PRINT((int)input, HEX);
 		}
+	}
+}
+
+
+void print_loop(void *pvParameters)
+{
+	portTickType xLastWakeTime;
+	const portTickType xFrequency = 200;
+
+
+	// Wait a bit so any initialization messages can be read
+	vTaskDelay(5000 / portTICK_RATE_MS);
+
+	xLastWakeTime = xTaskGetTickCount();
+
+	while (1) {
+		// Wait for the next cycle.
+		vTaskDelayUntil(&xLastWakeTime, xFrequency);
+
+		// One tick closer to stopping
+		ticks_to_stop --;
+
+		CLEAR_SCREEN();
+
+		// Print data
+		FLY_PRINT("Ticks:(");
+		FLY_PRINT(slow_ticks);
+		FLY_PRINT(",");
+		FLY_PRINT(fast_ticks);
+		FLY_PRINTLN(")");
+		slow_ticks = 0;
+		fast_ticks = 0;
+
+		FLY_PRINT("Comp X: ");
+		FLY_PRINTLN(Compass::x, 4);
+		FLY_PRINT("Comp Y: ");
+		FLY_PRINTLN(Compass::y, 4);
+		FLY_PRINT("Comp Z: ");
+		FLY_PRINTLN(Compass::z, 4);
+
+		FLY_PRINT("Temp: ");
+		FLY_PRINTLN(Pressure::temperature);
+		FLY_PRINT("Pres: ");
+		FLY_PRINTLN(Pressure::pressure);
+		FLY_PRINT("Alt : ");
+		FLY_PRINTLN(Pressure::altitude, 4);
+
+		FLY_PRINT("Rel : ");
+		FLY_PRINTLN(GlobalXYZ::rel_height, 4);
+
+		FLY_PRINT("Acc X:");
+		FLY_PRINTLN(Accelerometer::x);
+		FLY_PRINT("Acc Y:");
+		FLY_PRINTLN(Accelerometer::y);
+		FLY_PRINT("Acc Z:");
+		FLY_PRINTLN(Accelerometer::z);
+
+		FLY_PRINT("Gyr X:");
+		FLY_PRINTLN(Gyroscope::x);
+		FLY_PRINT("Gyr Y:");
+		FLY_PRINTLN(Gyroscope::y);
+		FLY_PRINT("Gyr Z:");
+		FLY_PRINTLN(Gyroscope::z);
+
+		FLY_PRINT("Up X:");
+		FLY_PRINTLN(GlobalXYZ::up[0], 4);
+		FLY_PRINT("Up Y:");
+		FLY_PRINTLN(GlobalXYZ::up[1], 4);
+		FLY_PRINT("Up Z:");
+		FLY_PRINTLN(GlobalXYZ::up[2], 4);
+
+		uint16_t motorspeed[4];
+		Motor::getspeed(motorspeed);
+		FLY_PRINT("Spd 0:");
+		FLY_PRINTLN(motorspeed[0]);
+		FLY_PRINT("Spd 1:");
+		FLY_PRINTLN(motorspeed[1]);
+		FLY_PRINT("Spd 2:");
+		FLY_PRINTLN(motorspeed[2]);
+		FLY_PRINT("Spd 3:");
+		FLY_PRINTLN(motorspeed[3]);
+		FLY_PRINT("basespeed:");
+		FLY_PRINTLN(MotorControl::getspeed());
+
+		FLY_PRINTLN();
+		FLY_PRINTLN("Commands: i e d a ; ' '");
+
+		/* Notes:
+		 *
+		 * Takeoff @ around 3300
+		 * Safe landing maybe 2900
+		 *
+		 */
+
+		// Come back to the ground after a period of time
+		if((ticks_to_stop == 0) && (MotorControl::is_height_set() == true)) {
+			MotorControl::setheight(-5.0);
+		}
+
+		FLY_PRINT("> ");
 	}
 }
 
