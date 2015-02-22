@@ -128,34 +128,21 @@ static inline void do_user_input(void)
 
 			break;
 		case 'a':
-//					Motor::update(MOTOR_COMPUTE_NEW_SPEED(motorspeed[0], 100));
-			MotorControl::setspeed(MOTOR_COMPUTE_NEW_SPEED(MotorControl::getspeed(), 100));
+			MotorControl::setbasespeed(MOTOR_COMPUTE_NEW_SPEED(MotorControl::getbasespeed(), 100));
 			break;
 		case ';':
-//					Motor::update(MOTOR_COMPUTE_NEW_SPEED(motorspeed[0], -100));
-			MotorControl::setspeed(MOTOR_COMPUTE_NEW_SPEED(MotorControl::getspeed(), -100));
+			MotorControl::setbasespeed(MOTOR_COMPUTE_NEW_SPEED(MotorControl::getbasespeed(), -100));
 		case '1':
-			MotorControl::setheight(2.0);
+			MotorControl::enablepid();
+			//MotorControl::setheight(2.0);
 			break;
 		case '0':
-			MotorControl::setheight(-5.0);
+			MotorControl::disablepid();
+			//MotorControl::setheight(-5.0);
 			break;
-//				case '1':
-//					Motor::update(500, FLYMAPLE_MOTOR_0);
-//
-//					break;
-//				case '2':
-//					Motor::update(500, FLYMAPLE_MOTOR_1);
-//
-//					break;
-//				case '3':
-//					Motor::update(500, FLYMAPLE_MOTOR_2);
-//
-//					break;
-//				case '4':
-//					Motor::update(500, FLYMAPLE_MOTOR_3);
-//
-//					break;
+		case 'x':
+			ticks_to_stop = 60 * 5;
+			break;
 		case ' ':
 			FLY_PRINTLN("Stopping motors");
 
@@ -201,6 +188,7 @@ void print_loop(void *pvParameters)
 		slow_ticks = 0;
 		fast_ticks = 0;
 
+#if 0
 		FLY_PRINT("Comp X: ");
 		FLY_PRINTLN(Compass::x, 4);
 		FLY_PRINT("Comp Y: ");
@@ -214,10 +202,12 @@ void print_loop(void *pvParameters)
 		FLY_PRINTLN(Pressure::pressure);
 		FLY_PRINT("Alt : ");
 		FLY_PRINTLN(Pressure::altitude, 4);
+#endif
 
 		FLY_PRINT("Rel : ");
 		FLY_PRINTLN(GlobalXYZ::rel_height, 4);
 
+#if 0
 		FLY_PRINT("Acc X:");
 		FLY_PRINTLN(Accelerometer::x);
 		FLY_PRINT("Acc Y:");
@@ -231,6 +221,7 @@ void print_loop(void *pvParameters)
 		FLY_PRINTLN(Gyroscope::y);
 		FLY_PRINT("Gyr Z:");
 		FLY_PRINTLN(Gyroscope::z);
+#endif
 
 		FLY_PRINT("Up X:");
 		FLY_PRINTLN(GlobalXYZ::up[0], 4);
@@ -250,10 +241,25 @@ void print_loop(void *pvParameters)
 		FLY_PRINT("Spd 3:");
 		FLY_PRINTLN(motorspeed[3]);
 		FLY_PRINT("basespeed:");
-		FLY_PRINTLN(MotorControl::getspeed());
+		FLY_PRINTLN(MotorControl::getbasespeed());
+		FLY_PRINT("ticks:");
+		FLY_PRINTLN(ticks_to_stop);
+
+		double k[3];
+		double perf_index;
+		MotorControl::getparams(k, &perf_index);
+		FLY_PRINT("k[0]:");
+		FLY_PRINTLN(k[0], 4);
+		FLY_PRINT("k[1]:");
+		FLY_PRINTLN(k[1], 4);
+		FLY_PRINT("k[2]:");
+		FLY_PRINTLN(k[2], 4);
+		FLY_PRINT("perf_index:");
+		FLY_PRINTLN(perf_index, 4);
+
 
 		FLY_PRINTLN();
-		FLY_PRINTLN("Commands: i e d a ; ' '");
+		FLY_PRINTLN("Commands: i e d 1 0 x a ; ' '");
 
 		/* Notes:
 		 *
@@ -263,9 +269,16 @@ void print_loop(void *pvParameters)
 		 */
 
 		// Come back to the ground after a period of time
-		if((ticks_to_stop == 0) && (MotorControl::is_height_set() == true)) {
+		if ((ticks_to_stop == 150) && (MotorControl::is_height_set() == true)) {
 			MotorControl::setheight(-5.0);
 		}
+		if ((ticks_to_stop == 0) && (MotorControl::is_height_set() == true)) {
+			MotorControl::unset_height();
+
+			Motor::disable();
+		}
+
+		do_user_input();
 
 		FLY_PRINT("> ");
 	}
@@ -306,7 +319,8 @@ void loop(void *pvParameters)
 	}
 #ifdef NOTYET
 	xTaskCreate(vTaskUpdateXYZ, (const signed char *)"GlobalXYZ", STACK_SIZE, NULL, 1, NULL);
-	xTaskCreate(vTaskTestOrientationFiltering2, (const signed char *)"testOrientationFiltering2", STACK_SIZE, NULL, 1, NULL);
+	xTaskCreate(vTaskTestOrientationFiltering2, (const signed char *)"testOrientationFiltering2",
+	            STACK_SIZE, NULL, 1, NULL);
 
 	vTaskStartScheduler();
 #endif
