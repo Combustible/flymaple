@@ -29,7 +29,6 @@
 #define PWM_PIN 2
 #define STACK_SIZE 300
 
-
 void setup()
 {
 	/* Set up the LED to blink  */
@@ -247,19 +246,25 @@ void print_loop(void *pvParameters)
 
 		double k[3];
 		double perf_index;
-		MotorControl::getparams(k, &perf_index);
+		double phi[6];
+		MotorControl::getparams(k, phi, &perf_index);
 		FLY_PRINT("k[0]:");
 		FLY_PRINTLN(k[0], 4);
 		FLY_PRINT("k[1]:");
 		FLY_PRINTLN(k[1], 4);
 		FLY_PRINT("k[2]:");
 		FLY_PRINTLN(k[2], 4);
+		FLY_PRINTLN("phi");
+		for (int i = 0; i < 6; i ++) {
+			FLY_PRINTLN(phi[i]);
+		}
 		FLY_PRINT("perf_index:");
 		FLY_PRINTLN(perf_index, 4);
 
 
 		FLY_PRINTLN();
 		FLY_PRINTLN("Commands: i e d 1 0 x a ; ' '");
+
 
 		/* Notes:
 		 *
@@ -287,6 +292,9 @@ void print_loop(void *pvParameters)
 /* Please Do Not Remove & Edit Following Code */
 void loop(void *pvParameters)
 {
+	// Be quiet at start time
+	Motor::init();
+
 	while (1) {
 		while (SerialUSB.available()) {
 			uint8 input = SerialUSB.read();

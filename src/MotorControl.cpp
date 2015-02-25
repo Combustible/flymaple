@@ -20,9 +20,7 @@
 
 /********************** Locally Accessible **********************/
 
-#define MOTOR_CONTROL_LEVEL_MAX_DIFF 1200
-#define MOTOR_CONTROL_MIN_BASE_SPEED 2700
-#define MOTOR_CONTROL_MAX_BASE_SPEED 4200
+
 
 static double target_height = 0;
 static bool target_height_set = false;
@@ -33,19 +31,10 @@ static int32_t y_output = 0;
 static bool pid_enabled = false;
 
 static double k[3] = {0, 0, 0}; // Weights. Effectively ki, kp, kd respectively.
+static double phi[NUM_HIDDEN_LAYER_NODES];
 static double perf_index = 0;
 
-static const double alpha = 0.4;
-static const double beta = 0.6;
-static const double epsilon = 0.01;
 
-static const double alpha_actor = 0.013;
-static const double alpha_critic = 0.01;
-static const double discount_factor = 0.98;
-static const double eta_u = 0.025; // Center
-static const double eta_sigma = 0.015; // Width
-
-#define NUM_HIDDEN_LAYER_NODES 6
 
 #ifdef TEST
 #define TWO_PI      6.283185307179586476925286766559
@@ -165,8 +154,8 @@ void update_level_flight()
 
 		{
 			// Compute the output differential value to apply
-			int32_t new_output = x_output + (k[0] * err[0]) +
-			                     (k[1] * err[1]) + (k[2] * err[2]);
+			int32_t new_output = x_output +
+			                     100 * ((k[0] * err[0]) + (k[1] * err[1]) + (k[2] * err[2]));
 
 			if (new_output > MOTOR_CONTROL_LEVEL_MAX_DIFF) {
 				new_output = MOTOR_CONTROL_LEVEL_MAX_DIFF;
@@ -175,18 +164,19 @@ void update_level_flight()
 			}
 
 #ifdef TEST
-			motor[0] = local_base_speed - new_output;
-			motor[2] = local_base_speed + new_output;
+			motor[0] = MOTOR_COMPUTE_NEW_SPEED(local_base_speed, (-1) * new_output);
+			motor[2] = MOTOR_COMPUTE_NEW_SPEED(local_base_speed,  new_output);
 #else
-			Motor::update(local_base_speed - new_output, FLYMAPLE_MOTOR_0);
-			Motor::update(local_base_speed + new_output, FLYMAPLE_MOTOR_2);
+			Motor::update(MOTOR_COMPUTE_NEW_SPEED(local_base_speed, (-1) * new_output),
+			              FLYMAPLE_MOTOR_0);
+			Motor::update(MOTOR_COMPUTE_NEW_SPEED(local_base_speed,  new_output),
+			              FLYMAPLE_MOTOR_2);
 #endif
 
 			x_output = new_output;
 		}
 
 		// Equation 3
-		double phi[NUM_HIDDEN_LAYER_NODES];
 		for (int i = 0; i < NUM_HIDDEN_LAYER_NODES; i++) {
 			phi[i] = exp((-1.0) * (pow(err[0] - u[i][0], 2) +
 			                       pow(err[1] - u[i][1], 2) +
@@ -289,8 +279,8 @@ void update_level_flight()
 
 		{
 			// Compute the output differential value to apply
-			int32_t new_output = y_output + (k[0] * err[0]) +
-			                     (k[1] * err[1]) + (k[2] * err[2]);
+			int32_t new_output = y_output +
+			                     100 * ((k[0] * err[0]) + (k[1] * err[1]) + (k[2] * err[2]));
 
 			if (new_output > MOTOR_CONTROL_LEVEL_MAX_DIFF) {
 				new_output = MOTOR_CONTROL_LEVEL_MAX_DIFF;
@@ -299,11 +289,13 @@ void update_level_flight()
 			}
 
 #ifdef TEST
-			motor[1] = local_base_speed - new_output;
-			motor[3] = local_base_speed + new_output;
+			motor[1] = MOTOR_COMPUTE_NEW_SPEED(local_base_speed, (-1) * new_output);
+			motor[3] = MOTOR_COMPUTE_NEW_SPEED(local_base_speed,  new_output);
 #else
-			Motor::update(local_base_speed - new_output, FLYMAPLE_MOTOR_1);
-			Motor::update(local_base_speed + new_output, FLYMAPLE_MOTOR_3);
+			Motor::update(MOTOR_COMPUTE_NEW_SPEED(local_base_speed, (-1) * new_output),
+			              FLYMAPLE_MOTOR_1);
+			Motor::update(MOTOR_COMPUTE_NEW_SPEED(local_base_speed,  new_output),
+			              FLYMAPLE_MOTOR_3);
 #endif
 
 			y_output = new_output;
@@ -385,13 +377,20 @@ void MotorControl::update()
 	update_level_flight();
 }
 
-void MotorControl::getparams(double k_out[3], double *perf_out)
+void MotorControl::getparams(double k_out[3], double phi_out[NUM_HIDDEN_LAYER_NODES],
+                             double *perf_out)
 {
-	k_out[0] = k_out[0];
-	k_out[1] = k_out[1];
-	k_out[2] = k_out[2];
+	k_out[0] = k[0];
+	k_out[1] = k[1];
+	k_out[2] = k[2];
+	for (int i = 0; i < NUM_HIDDEN_LAYER_NODES; i++) {
+		phi_out[i] = phi[i];
+	}
 	*perf_out = perf_index;
 }
+
+
+
 
 #ifdef TEST
 main(int arc, char **argv)
