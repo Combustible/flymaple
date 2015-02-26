@@ -155,7 +155,7 @@ void update_level_flight()
 		{
 			// Compute the output differential value to apply
 			int32_t new_output = x_output +
-			                     100 * ((k[0] * err[0]) + (k[1] * err[1]) + (k[2] * err[2]));
+			                     10 * ((k[0] * err[0]) + (k[1] * err[1]) + (k[2] * err[2]));
 
 			if (new_output > MOTOR_CONTROL_LEVEL_MAX_DIFF) {
 				new_output = MOTOR_CONTROL_LEVEL_MAX_DIFF;
@@ -292,10 +292,15 @@ void update_level_flight()
 			motor[1] = MOTOR_COMPUTE_NEW_SPEED(local_base_speed, (-1) * new_output);
 			motor[3] = MOTOR_COMPUTE_NEW_SPEED(local_base_speed,  new_output);
 #else
+#ifdef Y_AXIS
 			Motor::update(MOTOR_COMPUTE_NEW_SPEED(local_base_speed, (-1) * new_output),
 			              FLYMAPLE_MOTOR_1);
 			Motor::update(MOTOR_COMPUTE_NEW_SPEED(local_base_speed,  new_output),
 			              FLYMAPLE_MOTOR_3);
+#else
+			Motor::update(local_base_speed, FLYMAPLE_MOTOR_1);
+			Motor::update(local_base_speed, FLYMAPLE_MOTOR_3);
+#endif
 #endif
 
 			y_output = new_output;
