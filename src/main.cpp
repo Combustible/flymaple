@@ -47,6 +47,12 @@ bool global_sensor_init_flag = false;
 int slow_ticks = 0;
 int fast_ticks = 0;
 
+extern double phi_x[NUM_HIDDEN_LAYER_NODES];
+extern double phi_y[NUM_HIDDEN_LAYER_NODES];
+
+extern double perf_index_x;
+extern double perf_index_y;
+
 void slow_sensor_loop(void *pvParameters)
 {
 	portTickType xLastWakeTime;
@@ -244,22 +250,18 @@ void print_loop(void *pvParameters)
 		FLY_PRINT("ticks:");
 		FLY_PRINTLN(ticks_to_stop);
 
-		double k[3];
-		double perf_index;
-		double phi[6];
-		MotorControl::getparams(k, phi, &perf_index);
-		FLY_PRINT("k[0]:");
-		FLY_PRINTLN(k[0], 4);
-		FLY_PRINT("k[1]:");
-		FLY_PRINTLN(k[1], 4);
-		FLY_PRINT("k[2]:");
-		FLY_PRINTLN(k[2], 4);
-		FLY_PRINTLN("phi");
+		FLY_PRINTLN("phi_x");
 		for (int i = 0; i < 6; i ++) {
-			FLY_PRINTLN(phi[i]);
+			FLY_PRINTLN(phi_x[i]);
 		}
-		FLY_PRINT("perf_index:");
-		FLY_PRINTLN(perf_index, 4);
+		FLY_PRINTLN("phi_y");
+		for (int i = 0; i < 6; i ++) {
+			FLY_PRINTLN(phi_y[i]);
+		}
+		FLY_PRINT("perf_index_x:");
+		FLY_PRINTLN(perf_index_x, 4);
+		FLY_PRINT("perf_index_y:");
+		FLY_PRINTLN(perf_index_y, 4);
 
 
 		FLY_PRINTLN();

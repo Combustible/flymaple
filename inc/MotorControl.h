@@ -41,7 +41,7 @@ namespace MotorControl
 	void disablepid(void);
 
 	void update(void);
-	void getparams(double k_out[3], double phi_out[NUM_HIDDEN_LAYER_NODES], double *perf_out);
+	void getparams(double phi_out[NUM_HIDDEN_LAYER_NODES], double *perf_out);
 };
 
 
