@@ -17,3 +17,9 @@ libmaple
 *.lai
 *.la
 *.a
+
+# Cscope database files
+cscope.*
+
+# YouComplete compiled config
+.ycm_extra_conf.pyc
