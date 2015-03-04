@@ -24,7 +24,7 @@ using namespace std;
 
 /********************** Locally Accessible **********************/
 
-
+bool learning_enabled = true;
 
 static double target_height = 0;
 static bool target_height_set = false;
@@ -37,9 +37,14 @@ static bool pid_enabled = false;
 double phi_x[NUM_HIDDEN_LAYER_NODES];
 double phi_y[NUM_HIDDEN_LAYER_NODES];
 
+double sigma_x[NUM_HIDDEN_LAYER_NODES] = {0};  // Hidden layer weight
+double w_x[NUM_HIDDEN_LAYER_NODES][3] = {{0}}; // Actor weights
+double v_x[NUM_HIDDEN_LAYER_NODES] = {0};      // Critic weights
+
 double perf_index_x = 0;
 double perf_index_y = 0;
 
+double k_x[3] = {0, 0, 0};
 
 
 #ifdef REINFORCEMENT_SIMULATION
@@ -149,7 +154,7 @@ static void reinforcement_learning(double err[3],
 	err[2] = angle - (2 * (*err_prev)) + (*err_prev_prev);
 
 	// Compute the output differential value to apply
-	*output = *output + 10 * ((k[0] * err[0]) + (k[1] * err[1]) + (k[2] * err[2]));
+	*output = 10 * ((k[0] * err[0]) + (k[1] * err[1]) + (k[2] * err[2]));
 	if ((*output) > MOTOR_CONTROL_LEVEL_MAX_DIFF) {
 		*output = MOTOR_CONTROL_LEVEL_MAX_DIFF;
 	} else if ((*output) < -MOTOR_CONTROL_LEVEL_MAX_DIFF) {
@@ -198,32 +203,35 @@ static void reinforcement_learning(double err[3],
 	// Equation 8
 	*perf_index = 0.5 * pow(td_err, 2);
 
-	{
-		double sigma_next[NUM_HIDDEN_LAYER_NODES] = {0};
-		for (int i = 0; i < NUM_HIDDEN_LAYER_NODES; i++) {
-			// Equation 12
-			sigma_next[i] = sigma[i] + eta_sigma * td_err * v[i] * phi[i] *
-			                (pow(err[0] - u[i][0], 2) +
-			                 pow(err[1] - u[i][1], 2) +
-			                 pow(err[2] - u[i][2], 2)) / pow(sigma[i], 3);
+	if (learning_enabled == true) {
 
-			// Equation 11
+		{
+			double sigma_next[NUM_HIDDEN_LAYER_NODES] = {0};
+			for (int i = 0; i < NUM_HIDDEN_LAYER_NODES; i++) {
+				// Equation 12
+				sigma_next[i] = sigma[i] + eta_sigma * td_err * v[i] * phi[i] *
+								(pow(err[0] - u[i][0], 2) +
+								 pow(err[1] - u[i][1], 2) +
+								 pow(err[2] - u[i][2], 2)) / pow(sigma[i], 3);
+
+				// Equation 11
+				for (int j = 0; j < 3; j++) {
+					u[i][j] = u[i][j] + eta_u * td_err * v[i] * phi[i] * (err[j] - u[i][j]) / pow(sigma[i], 2);
+				}
+
+				sigma[i] = sigma_next[i];
+			}
+		}
+
+		for (int i = 0; i < NUM_HIDDEN_LAYER_NODES; i++) {
+			// Equation 9
 			for (int j = 0; j < 3; j++) {
-				u[i][j] = u[i][j] + eta_u * td_err * v[i] * phi[i] * (err[j] - u[i][j]) / pow(sigma[i], 2);
+				w[i][j] = w[i][j] + alpha_actor * td_err * (noise[i][j]) * phi[i] / sigma[i];
 			}
 
-			sigma[i] = sigma_next[i];
+			// Equation 10
+			v[i] = v[i] + alpha_critic * td_err * sigma[i];
 		}
-	}
-
-	for (int i = 0; i < NUM_HIDDEN_LAYER_NODES; i++) {
-		// Equation 9
-		for (int j = 0; j < 3; j++) {
-			w[i][j] = w[i][j] + alpha_actor * td_err * (noise[i][j]) * phi[i] / sigma[i];
-		}
-
-		// Equation 10
-		v[i] = v[i] + alpha_critic * td_err * sigma[i];
 	}
 
 	*prev_critic = critic;
@@ -278,12 +286,7 @@ void update_level_flight()
 		static double err_prev_prev = 0; // x (t - 2)
 
 		static double u[NUM_HIDDEN_LAYER_NODES][3] = {{0}}; // Hidden layer center vector
-		static double sigma[NUM_HIDDEN_LAYER_NODES] = {0};  // Hidden layer weight
-		static double w[NUM_HIDDEN_LAYER_NODES][3] = {{0}}; // Actor weights
-		static double v[NUM_HIDDEN_LAYER_NODES] = {0};      // Critic weights
 		static double prev_critic = 0;
-
-		static double k[3] = {0, 0, 0};
 
 		static bool needsinit = true;
 
@@ -292,12 +295,12 @@ void update_level_flight()
 		                       &err_prev_prev,
 		                       u,
 		                       phi_x,
-		                       sigma,
-		                       w,
-		                       v,
+		                       sigma_x,
+		                       w_x,
+		                       v_x,
 		                       &prev_critic,
 							   &perf_index_x,
-		                       k,
+		                       k_x,
 		                       &needsinit,
 		                       atan2(up_ref[0], up_ref[2]),
 		                       &x_output);
@@ -448,7 +451,7 @@ void MotorControl::update()
 #ifdef REINFORCEMENT_SIMULATION
 main(int arc, char **argv)
 {
-	srand(2348994872);
+	srand(23489872);
 	MotorControl::enablepid();
 	MotorControl::setbasespeed(2000);
 

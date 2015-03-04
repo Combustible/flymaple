@@ -29,6 +29,8 @@
 #define PWM_PIN 2
 #define STACK_SIZE 300
 
+#define GRAPH_LOOP 1
+
 void setup()
 {
 	/* Set up the LED to blink  */
@@ -49,9 +51,14 @@ int fast_ticks = 0;
 
 extern double phi_x[NUM_HIDDEN_LAYER_NODES];
 extern double phi_y[NUM_HIDDEN_LAYER_NODES];
-
+extern double sigma_x[NUM_HIDDEN_LAYER_NODES];
+extern double w_x[NUM_HIDDEN_LAYER_NODES];
+extern double v_x[NUM_HIDDEN_LAYER_NODES];
 extern double perf_index_x;
 extern double perf_index_y;
+extern double k_x[3];
+
+extern bool learning_enabled;
 
 void slow_sensor_loop(void *pvParameters)
 {
@@ -79,6 +86,7 @@ void sensor_loop(void *pvParameters)
 {
 	portTickType xLastWakeTime;
 	const portTickType xFrequency = 10; // 100 Hz
+	static bool toggle = true;
 
 	/* Initialize sensors */
 	Compass::init();
@@ -101,7 +109,12 @@ void sensor_loop(void *pvParameters)
 			Gyroscope::getReading();
 
 			GlobalXYZ::update();
-			MotorControl::update();
+			if (toggle == true) {
+				MotorControl::update();
+				toggle = false;
+			} else {
+				toggle = true;
+			}
 		}
 
 		fast_ticks++;
@@ -125,6 +138,7 @@ static inline void do_user_input(void)
 		case 'e':
 			FLY_PRINTLN("Enabling motors");
 			Motor::enable();
+			learning_enabled = true;
 
 			break;
 		case 'd':
@@ -137,6 +151,14 @@ static inline void do_user_input(void)
 			break;
 		case ';':
 			MotorControl::setbasespeed(MOTOR_COMPUTE_NEW_SPEED(MotorControl::getbasespeed(), -100));
+		case '2':
+			learning_enabled = true;
+			//MotorControl::setheight(2.0);
+			break;
+		case '9':
+			learning_enabled = false;
+			//MotorControl::setheight(-5.0);
+			break;
 		case '1':
 			MotorControl::enablepid();
 			//MotorControl::setheight(2.0);
@@ -152,7 +174,7 @@ static inline void do_user_input(void)
 			FLY_PRINTLN("Stopping motors");
 
 			MotorControl::unset_height();
-
+			learning_enabled = false;
 			Motor::disable();
 
 			break;
@@ -182,6 +204,57 @@ void print_loop(void *pvParameters)
 		// One tick closer to stopping
 		ticks_to_stop --;
 
+#ifdef GRAPH_LOOP
+		for (int i = 0; i < NUM_HIDDEN_LAYER_NODES; i ++) {
+			FLY_PRINT("phi_");
+			FLY_PRINT(i);
+			FLY_PRINT("_");
+			FLY_PRINTLN(phi_x[i],6);
+		}
+
+		for (int i = 0; i < NUM_HIDDEN_LAYER_NODES; i ++) {
+			FLY_PRINT("sig_");
+			FLY_PRINT(i);
+			FLY_PRINT("_");
+			FLY_PRINTLN(sigma_x[i],6);
+		}
+
+		for (int i = 0; i < NUM_HIDDEN_LAYER_NODES; i ++) {
+			FLY_PRINT("w_");
+			FLY_PRINT(i);
+			FLY_PRINT("_");
+			FLY_PRINTLN(w_x[i],6);
+		}
+
+		for (int i = 0; i < NUM_HIDDEN_LAYER_NODES; i ++) {
+			FLY_PRINT("v_");
+			FLY_PRINT(i);
+			FLY_PRINT("_");
+			FLY_PRINTLN(v_x[i],6);
+		}
+
+		for (int i = 0; i < 3; i ++) {
+			FLY_PRINT("k_");
+			FLY_PRINT(i);
+			FLY_PRINT("_");
+			FLY_PRINTLN(k_x[i],6);
+		}
+
+		uint16_t motorspeed[4];
+		Motor::getspeed(motorspeed);
+		for (int i = 0; i < 4; i ++) {
+			FLY_PRINT("m_");
+			FLY_PRINT(i);
+			FLY_PRINT("_");
+			FLY_PRINTLN(motorspeed[i]);
+		}
+
+		FLY_PRINT("perf_");
+		FLY_PRINTLN(perf_index_x,6);
+
+		FLY_PRINT("base_");
+		FLY_PRINTLN(MotorControl::getbasespeed());
+#else
 		CLEAR_SCREEN();
 
 		// Print data
@@ -252,11 +325,11 @@ void print_loop(void *pvParameters)
 
 		FLY_PRINTLN("phi_x");
 		for (int i = 0; i < 6; i ++) {
-			FLY_PRINTLN(phi_x[i]);
+			FLY_PRINTLN(phi_x[i],6);
 		}
 		FLY_PRINTLN("phi_y");
 		for (int i = 0; i < 6; i ++) {
-			FLY_PRINTLN(phi_y[i]);
+			FLY_PRINTLN(phi_y[i],6);
 		}
 		FLY_PRINT("perf_index_x:");
 		FLY_PRINTLN(perf_index_x, 4);
@@ -267,6 +340,8 @@ void print_loop(void *pvParameters)
 		FLY_PRINTLN();
 		FLY_PRINTLN("Commands: i e d 1 0 x a ; ' '");
 
+		FLY_PRINT("> ");
+#endif
 
 		/* Notes:
 		 *
@@ -286,8 +361,6 @@ void print_loop(void *pvParameters)
 		}
 
 		do_user_input();
-
-		FLY_PRINT("> ");
 	}
 }
 
@@ -306,7 +379,7 @@ void loop(void *pvParameters)
 			case ' ':
 				FLY_PRINTLN("spacebar, nice!");
 
-				xTaskCreate(sensor_loop, (const signed char *)"sensor_loop", STACK_SIZE, NULL, 1, NULL);
+				xTaskCreate(sensor_loop, (const signed char *)"sensor_loop", 900, NULL, 1, NULL);
 				xTaskCreate(slow_sensor_loop, (const signed char *)"slow_sensor_loop", STACK_SIZE, NULL, 1, NULL);
 				xTaskCreate(print_loop, (const signed char *)"print_loop", STACK_SIZE, NULL, 1, NULL);
 
